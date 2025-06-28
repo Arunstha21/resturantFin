@@ -39,7 +39,7 @@ export function IncomeRecordDialog({ record, onSuccess, trigger, mode = "create"
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
-      <DialogContent className="overflow-y-auto max-w-[50vw] w-full max-h-[95vh]" aria-describedby="dialog-description">
+      <DialogContent className="overflow-y-auto max-w-2xl max-h-[95vh]" aria-describedby="dialog-description">
         <DialogHeader>
           <DialogTitle>{record ? "Edit Order" : "Create New Order"}</DialogTitle>
         </DialogHeader>
