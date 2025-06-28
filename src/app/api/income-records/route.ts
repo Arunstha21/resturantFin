@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const records = await IncomeRecord
       .find()
-      .sort({ date: -1, createdAt: -1 })
+      .sort({ paymentStatus: -1, date: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean()
