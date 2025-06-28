@@ -23,16 +23,25 @@ interface IncomeRecordFormProps {
 }
 
 const menuItems = [
-  { name: "Burger", price: 12.99 },
-  { name: "Pizza Margherita", price: 15.99 },
-  { name: "Caesar Salad", price: 9.99 },
-  { name: "Pasta Carbonara", price: 14.99 },
-  { name: "Chicken Wings", price: 11.99 },
-  { name: "Fish & Chips", price: 16.99 },
-  { name: "Coca Cola", price: 2.99 },
-  { name: "Coffee", price: 3.99 },
-  { name: "Cheesecake", price: 6.99 },
-  { name: "Ice Cream", price: 4.99 },
+  { name: "Milk Tea", price: 30 },
+  { name: "Black Tea", price: 25 },
+  { name: "Lemon Tea", price: 25 },
+  { name: "Lassi Half", price: 50 },
+  { name: "Lassi Full", price: 100 },
+  { name: "Alu Chop", price: 60 },
+  { name: "Wai Wai Sadheako", price: 60 },
+  { name: "Coke/Fanta/Sprite", price: 80 },
+  { name: "Sikher Ice", price: 25 },
+  { name: "Churot", price: 30 },
+  { name: "Sandwich", price: 60 },
+  { name: "Milk Coffee", price: 100 },
+  { name: "Black Coffee", price: 60 },
+  { name: "Black Masala/Ginger Tea", price: 60 },
+  { name: "Hot lemon (Honey & Ginger)", price: 80 },
+  { name: "Sandwich with Fries", price: 100 },
+  { name: "French Fries", price: 80 },
+  { name: "Current", price: 90 },
+  { name: "Current with omlet", price: 120 },
 ]
 
 export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
