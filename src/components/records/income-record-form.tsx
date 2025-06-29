@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
@@ -13,9 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { showPromiseToast } from "@/lib/toast-utils"
 import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
 import { createIncomeRecord, updateIncomeRecord } from "@/app/actions/income-records"
-import { Plus, Trash2, Calculator } from "lucide-react"
+import { Plus, Trash2, Calculator, ChevronUp, ChevronDown, FileText } from "lucide-react"
 import type { IncomeRecord } from "@/types"
 import { formatCurrency } from "@/lib/utils"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -24,15 +26,15 @@ interface IncomeRecordFormProps {
 
 const menuItems = [
   { name: "Milk Tea", price: 30 },
+  { name: "Sikher Ice", price: 25 },
+  { name: "Churot", price: 30 },
   { name: "Black Tea", price: 25 },
   { name: "Lemon Tea", price: 25 },
   { name: "Lassi Half", price: 50 },
-  { name: "Lassi Full", price: 100 },
   { name: "Alu Chop", price: 60 },
   { name: "Wai Wai Sadheako", price: 60 },
   { name: "Coke/Fanta/Sprite", price: 80 },
-  { name: "Sikher Ice", price: 25 },
-  { name: "Churot", price: 30 },
+  { name: "Lassi Full", price: 100 },
   { name: "Sandwich", price: 60 },
   { name: "Milk Coffee", price: 100 },
   { name: "Black Coffee", price: 60 },
@@ -42,18 +44,30 @@ const menuItems = [
   { name: "French Fries", price: 80 },
   { name: "Current", price: 90 },
   { name: "Current with omlet", price: 120 },
+  { name: "cookie", price: 20 },
+  { name: "Biscuit", price: 15 },
 ]
 
 export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [showDiscount, setShowDiscount] = useState(false)
+  const [showTip, setShowTip] = useState(false)
+  const [showAdditionalCharges, setShowAdditionalCharges] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
+  const [isSplitPayment, setIsSplitPayment] = useState(false)
 
   const safeRecord: IncomeRecordInput = record
     ? record
     : {
         items: [{ name: "", quantity: 1, price: 0 }],
         totalAmount: 0,
+        subtotal: 0,
+        discount: 0,
+        tip: 0,
         paymentMethod: "cash",
         paymentStatus: "pending",
+        cashAmount: 0,
+        digitalAmount: 0,
         date: new Date(),
         tableNumber: "",
         customerName: "",
@@ -83,28 +97,89 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     name: "items",
   })
 
-  const watchedItems = watch("items")
+  const calculateTotals = useCallback(() => {
+    const currentItems = watch("items")
+    if (!currentItems || currentItems.length === 0) return
 
-  // Calculate totals automatically (without tax)
-  const calculateTotals = () => {
-    if (!watchedItems || watchedItems.length === 0) return
-
-    const total = watchedItems.reduce((sum, item) => {
+    // Calculate subtotal
+    const subtotal = currentItems.reduce((sum, item) => {
       const quantity = Number(item?.quantity) || 0
       const price = Number(item?.price) || 0
       return sum + quantity * price
     }, 0)
 
-    setValue("totalAmount", Number(total.toFixed(2)))
-  }
+    setValue("subtotal", Number(subtotal.toFixed(2)))
 
-  // Recalculate when items or tip change
+    // Get discount and tip values (fixed amounts only)
+    const discountAmount = showDiscount ? Number(watch("discount")) || 0 : 0
+    const tipAmount = showTip ? Number(watch("tip")) || 0 : 0
+
+    // Calculate final total
+    const total = subtotal - discountAmount + tipAmount
+    setValue("totalAmount", Number(total.toFixed(2)))
+
+    // Handle split payment calculations
+    if (isSplitPayment) {
+      const cashAmount = Number(watch("cashAmount")) || 0
+      const digitalAmount = Number(watch("digitalAmount")) || 0
+      const totalPaid = cashAmount + digitalAmount
+
+      // Auto-set payment status based on total paid
+      if (totalPaid >= total) {
+        setValue("paymentStatus", "completed")
+      } else {
+        setValue("paymentStatus", "pending")
+      }
+    }
+  }, [watch, setValue, showDiscount, showTip, isSplitPayment])
+
+  // Recalculate when items change
   useEffect(() => {
     calculateTotals()
-  }, [watchedItems, setValue])
+  }, [calculateTotals])
+
+  // Watch for any form changes that should trigger recalculation
+  useEffect(() => {
+    const subscription = watch((value, { name, type }) => {
+      if (
+        (name?.startsWith("items.") &&
+          (name.includes(".quantity") || name.includes(".price") || name.includes(".name"))) ||
+        name === "discount" ||
+        name === "tip" ||
+        name === "cashAmount" ||
+        name === "digitalAmount" ||
+        type === "change"
+      ) {
+        setTimeout(() => {
+          calculateTotals()
+        }, 50)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, calculateTotals])
+
+  // Additional effect to ensure calculation on field array changes
+  useEffect(() => {
+    calculateTotals()
+  }, [fields.length, calculateTotals])
+
+  // Handle split payment toggle
+  useEffect(() => {
+    if (isSplitPayment) {
+      // When enabling split payment, set initial values
+      setValue("cashAmount", 0)
+      setValue("digitalAmount", 0)
+      setValue("paymentMethod", "split")
+    } else {
+      // When disabling split payment, reset to single payment
+      setValue("paymentMethod", "cash")
+      setValue("cashAmount", 0)
+      setValue("digitalAmount", 0)
+    }
+  }, [isSplitPayment, setValue, watch])
 
   const addMenuItem = (menuItem: (typeof menuItems)[0]) => {
-    const currentItems = watchedItems || []
+    const currentItems = watch("items") || []
 
     // Check if this is the default empty item (first item with empty name)
     const hasDefaultEmptyItem =
@@ -120,32 +195,39 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         quantity: 1,
         price: menuItem.price,
       })
-      return
-    }
-
-    // Check if the item already exists in the list
-    const existingItemIndex = currentItems.findIndex((item) => item.name.toLowerCase() === menuItem.name.toLowerCase())
-
-    if (existingItemIndex !== -1) {
-      // Item exists, increment quantity
-      const existingItem = currentItems[existingItemIndex]
-      update(existingItemIndex, {
-        ...existingItem,
-        quantity: (existingItem.quantity || 0) + 1,
-      })
     } else {
-      // Item doesn't exist, add new item
-      append({
-        name: menuItem.name,
-        quantity: 1,
-        price: menuItem.price,
-      })
+      // Check if the item already exists in the list
+      const existingItemIndex = currentItems.findIndex(
+        (item) => item.name.toLowerCase() === menuItem.name.toLowerCase(),
+      )
+
+      if (existingItemIndex !== -1) {
+        // Item exists, increment quantity
+        const existingItem = currentItems[existingItemIndex]
+        update(existingItemIndex, {
+          ...existingItem,
+          quantity: (existingItem.quantity || 0) + 1,
+        })
+      } else {
+        // Item doesn't exist, add new item
+        append({
+          name: menuItem.name,
+          quantity: 1,
+          price: menuItem.price,
+        })
+      }
     }
+
+    // Trigger calculation after adding item
+    setTimeout(() => {
+      calculateTotals()
+    }, 100)
   }
 
   const onSubmit = async (data: IncomeRecordInput) => {
     setIsLoading(true)
     let result
+
     try {
       // Ensure all calculations are up to date and tip is a number
       const formData = {
@@ -155,31 +237,45 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
       const promise = record ? updateIncomeRecord(record._id, formData) : createIncomeRecord(formData)
       result = await promise
+
       await showPromiseToast(Promise.resolve(result), {
         loading: record ? "Updating order..." : "Creating order...",
         success: record ? "Order updated successfully!" : "Order created successfully!",
         error: "Something went wrong. Please try again.",
       })
-      
+
       if (result?.success) {
-        if (!record) reset({
-        items: [{ name: "", quantity: 1, price: 0 }],
-        totalAmount: 0,
-        paymentMethod: "cash",
-        paymentStatus: "pending",
-        date: new Date(),
-        tableNumber: "",
-        customerName: "",
-        notes: "",
-      })
+        if (!record)
+          reset({
+            items: [{ name: "", quantity: 1, price: 0 }],
+            totalAmount: 0,
+            subtotal: 0,
+            discount: 0,
+            tip: 0,
+            paymentMethod: "cash",
+            paymentStatus: "pending",
+            cashAmount: 0,
+            digitalAmount: 0,
+            date: new Date(),
+            tableNumber: "",
+            customerName: "",
+            notes: "",
+          })
         onSuccess?.()
       }
-        } catch (error) {
-          console.error("Form submission error:", error)
-        } finally {
-          setIsLoading(false)
-        }
-      }
+    } catch (error) {
+      console.error("Form submission error:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const watchedItems = watch("items")
+  const totalAmount = watch("totalAmount") || 0
+  const cashAmount = watch("cashAmount") || 0
+  const digitalAmount = watch("digitalAmount") || 0
+  const totalPaid = cashAmount + digitalAmount
+  const remainingAmount = Math.max(0, totalAmount - totalPaid)
 
   return (
     <div className="w-full space-y-6">
@@ -191,7 +287,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <Input id="tableNumber" placeholder="Table 1" {...register("tableNumber")} />
             {errors.tableNumber && <p className="text-sm text-red-600">{errors.tableNumber.message}</p>}
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="customerName">Customer Name</Label>
             <Input id="customerName" placeholder="John Doe" {...register("customerName")} />
@@ -250,7 +345,12 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => append({ name: "", quantity: 1, price: 0 })}
+              onClick={() => {
+                append({ name: "", quantity: 1, price: 0 })
+                setTimeout(() => {
+                  calculateTotals()
+                }, 100)
+              }}
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Custom Item
@@ -319,79 +419,294 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               </div>
             ))}
           </div>
-
           {errors.items && <p className="text-sm text-red-600">{errors.items.message}</p>}
         </div>
 
         <Separator />
 
-        {/* Totals */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
-            <Label>Order Summary</Label>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Status Overview</Label>
-              <div className="flex gap-2 pt-2">
-                <Badge variant={watch("paymentStatus") === "completed" ? "default" : "destructive"}>
-                  {watch("paymentStatus") === "completed" ? "Payment Complete" : "Payment Pending"}
-                </Badge>
+        {/* Additional Charges - Collapsible */}
+        <Collapsible open={showAdditionalCharges} onOpenChange={setShowAdditionalCharges}>
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="outline" className="w-full justify-between bg-transparent">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-4 w-4" />
+                <span>Additional Charges</span>
+                {(showDiscount && (watch("discount") || 0) > 0) || (showTip && (watch("tip") || 0) > 0) ? (
+                  <Badge variant="secondary" className="ml-2">
+                    {[
+                      showDiscount && (watch("discount") || 0) > 0 ? "Discount" : null,
+                      showTip && (watch("tip") || 0) > 0 ? "Tip" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" + ")}
+                  </Badge>
+                ) : null}
               </div>
-            </div>
-          </div>
+              <div className="flex items-center gap-1">
+                {showAdditionalCharges ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </Button>
+          </CollapsibleTrigger>
 
+          <CollapsibleContent className="space-y-4 pt-4">
+            {/* Discount Section */}
+            <div className="space-y-3 border rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-discount"
+                  checked={showDiscount}
+                  onCheckedChange={(checked) => {
+                    setShowDiscount(checked as boolean)
+                    if (!checked) {
+                      setValue("discount", 0)
+                    }
+                  }}
+                />
+                <Label htmlFor="enable-discount" className="font-medium">
+                  Apply Discount
+                </Label>
+              </div>
+
+              {showDiscount && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+                  <div className="space-y-2">
+                    <Label>Discount Amount</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      {...register("discount", { valueAsNumber: true })}
+                    />
+                    {errors.discount && <p className="text-sm text-red-600">{errors.discount.message}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Applied Discount</Label>
+                    <div className="text-sm font-medium py-2 px-3 bg-muted rounded">
+                      {formatCurrency(watch("discount") || 0)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Tip Section */}
+            <div className="space-y-3 border rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="enable-tip"
+                  checked={showTip}
+                  onCheckedChange={(checked) => {
+                    setShowTip(checked as boolean)
+                    if (!checked) {
+                      setValue("tip", 0)
+                    }
+                  }}
+                />
+                <Label htmlFor="enable-tip" className="font-medium">
+                  Add Tip
+                </Label>
+              </div>
+
+              {showTip && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+                  <div className="space-y-2">
+                    <Label>Tip Amount</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      {...register("tip", { valueAsNumber: true })}
+                    />
+                    {errors.tip && <p className="text-sm text-red-600">{errors.tip.message}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Applied Tip</Label>
+                    <div className="text-sm font-medium py-2 px-3 bg-muted rounded">
+                      {formatCurrency(watch("tip") || 0)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Order Summary - More Compact */}
+        <div className="space-y-4">
           <div className="bg-muted p-4 rounded-lg space-y-2">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(watch("subtotal") || 0)}</span>
+            </div>
+
+            {showDiscount && (watch("discount") || 0) > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Discount:</span>
+                <span>-{formatCurrency(watch("discount") || 0)}</span>
+              </div>
+            )}
+
+            {showTip && (watch("tip") || 0) > 0 && (
+              <div className="flex justify-between text-blue-600">
+                <span>Tip:</span>
+                <span>+{formatCurrency(watch("tip") || 0)}</span>
+              </div>
+            )}
+
+            <Separator />
             <div className="flex justify-between font-bold text-lg">
               <span>Total:</span>
               <span>{formatCurrency(watch("totalAmount") || 0)}</span>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="notes">Notes (Optional)</Label>
-          <Textarea id="notes" placeholder="Special instructions or notes..." {...register("notes")} />
-          {errors.notes && <p className="text-sm text-red-600">{errors.notes.message}</p>}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Payment Method</Label>
-            <Select
-              value={watch("paymentMethod")}
-              onValueChange={(value) => setValue("paymentMethod", value as "cash" | "digital")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="digital">Digital Payment</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.paymentMethod && <p className="text-sm text-red-600">{errors.paymentMethod.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="paymentStatus">Payment Status</Label>
-            <Select
-              value={watch("paymentStatus")}
-              onValueChange={(value) => setValue("paymentStatus", value as "pending" | "completed")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.paymentStatus && <p className="text-sm text-red-600">{errors.paymentStatus.message}</p>}
+          <div className="flex gap-2 pt-2">
+            <Badge variant={watch("paymentStatus") === "completed" ? "default" : "destructive"}>
+              {watch("paymentStatus") === "completed" ? "Payment Complete" : "Payment Pending"}
+            </Badge>
           </div>
         </div>
+
+        {/* Payment Method Section */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="split-payment"
+              checked={isSplitPayment}
+              onCheckedChange={(checked) => setIsSplitPayment(checked as boolean)}
+            />
+            <Label htmlFor="split-payment" className="font-medium">
+              Split Payment (Cash + Digital)
+            </Label>
+          </div>
+
+          {!isSplitPayment ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Payment Method</Label>
+                <Select
+                  value={watch("paymentMethod")}
+                  onValueChange={(value) => setValue("paymentMethod", value as "cash" | "digital")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="digital">Digital Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.paymentMethod && <p className="text-sm text-red-600">{errors.paymentMethod.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentStatus">Payment Status</Label>
+                <Select
+                  value={watch("paymentStatus")}
+                  onValueChange={(value) => setValue("paymentStatus", value as "pending" | "completed")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.paymentStatus && <p className="text-sm text-red-600">{errors.paymentStatus.message}</p>}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 border rounded-lg p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Cash Amount</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...register("cashAmount", { valueAsNumber: true })}
+                  />
+                  {errors.cashAmount && <p className="text-sm text-red-600">{errors.cashAmount.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Digital Amount</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...register("digitalAmount", { valueAsNumber: true })}
+                  />
+                  {errors.digitalAmount && <p className="text-sm text-red-600">{errors.digitalAmount.message}</p>}
+                </div>
+              </div>
+
+              <div className="bg-muted p-3 rounded space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Total Amount:</span>
+                  <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Total Paid:</span>
+                  <span className="font-medium">{formatCurrency(totalPaid)}</span>
+                </div>
+                {remainingAmount > 0 && (
+                  <div className="flex justify-between text-sm text-red-600">
+                    <span>Remaining:</span>
+                    <span className="font-medium">{formatCurrency(remainingAmount)}</span>
+                  </div>
+                )}
+                {totalPaid > totalAmount && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Overpaid:</span>
+                    <span className="font-medium">{formatCurrency(totalPaid - totalAmount)}</span>
+                  </div>
+                )}
+              </div>
+
+              {totalPaid !== totalAmount && (
+                <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                  ⚠️ Payment amounts don&apos;t match the total. Please adjust the amounts.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Notes - Collapsible */}
+        <Collapsible open={showNotes} onOpenChange={setShowNotes}>
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="outline" className="w-full justify-between bg-transparent">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Notes</span>
+                {watch("notes") && (
+                  <Badge variant="secondary" className="ml-2">
+                    Added
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {showNotes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </Button>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Textarea id="notes" placeholder="Special instructions or notes..." {...register("notes")} />
+              {errors.notes && <p className="text-sm text-red-600">{errors.notes.message}</p>}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         <div className="flex gap-2 pt-4">
           <Button type="submit" disabled={isLoading} className="flex-1">

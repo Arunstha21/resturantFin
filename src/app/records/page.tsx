@@ -34,6 +34,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Banknote,
+  Smartphone,
 } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { toast } from "sonner"
@@ -132,6 +134,36 @@ export default function RecordsPage() {
           </Button>
         ),
         cell: ({ getValue }) => <div className="font-medium">{getValue() as string}</div>,
+      },
+      {
+        accessorKey: "paymentMethod",
+        header: "Payment Method",
+        cell: ({ getValue, row }) => {
+          const method = getValue() as string
+          const record = row.original
+
+          if (method === "split") {
+            return (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
+                  <Banknote className="h-3 w-3" />
+                  <span className="text-xs">Cash: {formatCurrency(record.cashAmount || 0)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Smartphone className="h-3 w-3" />
+                  <span className="text-xs">Digital: {formatCurrency(record.digitalAmount || 0)}</span>
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div className="flex items-center gap-1">
+              {method === "cash" ? <Banknote className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+              <span className="text-xs capitalize">{method}</span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: "paymentStatus",
@@ -524,7 +556,7 @@ export default function RecordsPage() {
                         <TableBody>
                           {incomeTable.getRowModel().rows?.length ? (
                             incomeTable.getRowModel().rows.map((row) => (
-                              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="items-center">
                                 {row.getVisibleCells().map((cell) => (
                                   <TableCell key={cell.id}>
                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

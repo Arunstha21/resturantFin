@@ -17,9 +17,14 @@ export interface IncomeRecord {
   tableNumber?: string
   customerName?: string
   items: OrderItem[]
+  subtotal: number
+  discount: number
+  tip: number
   totalAmount: number
-  paymentMethod: "cash" | "digital"
+  paymentMethod: "cash" | "digital" | "split"
   paymentStatus: "pending" | "completed"
+  cashAmount?: number
+  digitalAmount?: number
   date: Date
   notes?: string
   createdBy: string

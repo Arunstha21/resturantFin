@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency, exportToCSV } from "@/lib/utils"
-import { Download, Filter, Receipt, CreditCard, Banknote, Smartphone, Calendar } from "lucide-react"
+import { Download, Filter, Receipt, CreditCard, Banknote, Smartphone, Calendar, AlertTriangle } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { toast } from "sonner"
 
@@ -118,15 +118,43 @@ export default function ReportsPage() {
   }
 
   const handleExportIncomeCSV = () => {
-    const exportData = filteredIncomeRecords.map((record) => ({
-      Date: new Date(record.date).toLocaleDateString(),
-      "Customer/Table": record.customerName || `Table ${record.tableNumber}` || "Walk-in",
-      "Payment Status": record.paymentStatus,
-      "Payment Method": record.paymentMethod,
-      Items: record.items.length,
-      "Total Amount": record.totalAmount,
-      Notes: record.notes || "",
-    }))
+    const exportData = filteredIncomeRecords.map((record) => {
+      const paidAmount =
+        record.paymentMethod === "split"
+          ? (record.cashAmount || 0) + (record.digitalAmount || 0)
+          : record.paymentStatus === "completed"
+            ? record.totalAmount
+            : 0
+
+      const pendingAmount = record.totalAmount - paidAmount
+
+      return {
+        Date: new Date(record.date).toLocaleDateString(),
+        "Customer/Table": record.customerName || `Table ${record.tableNumber}` || "Walk-in",
+        "Payment Status": record.paymentStatus,
+        "Payment Method": record.paymentMethod,
+        "Cash Amount":
+          record.paymentMethod === "split"
+            ? record.cashAmount || 0
+            : record.paymentMethod === "cash" && record.paymentStatus === "completed"
+              ? record.totalAmount
+              : 0,
+        "Digital Amount":
+          record.paymentMethod === "split"
+            ? record.digitalAmount || 0
+            : record.paymentMethod === "digital" && record.paymentStatus === "completed"
+              ? record.totalAmount
+              : 0,
+        Subtotal: record.subtotal || 0,
+        Discount: record.discount || 0,
+        Tip: record.tip || 0,
+        "Total Amount": record.totalAmount,
+        "Paid Amount": paidAmount,
+        "Pending Amount": pendingAmount,
+        Items: record.items.length,
+        Notes: record.notes || "",
+      }
+    })
 
     exportToCSV(exportData, `income-report-${new Date().toISOString().split("T")[0]}.csv`)
     toast.success("Income report exported successfully")
@@ -151,29 +179,69 @@ export default function ReportsPage() {
     const totalIncome = filteredIncomeRecords.reduce((sum, record) => sum + record.totalAmount, 0)
     const totalExpenses = filteredExpenseRecords.reduce((sum, record) => sum + record.amount, 0)
 
+    // Calculate actual received amounts (considering split payments and payment status)
+    let actualCashReceived = 0
+    let actualDigitalReceived = 0
+    let totalPendingAmount = 0
+
+    filteredIncomeRecords.forEach((record) => {
+      if (record.paymentMethod === "split") {
+        actualCashReceived += record.cashAmount || 0
+        actualDigitalReceived += record.digitalAmount || 0
+        const paidAmount = (record.cashAmount || 0) + (record.digitalAmount || 0)
+        totalPendingAmount += Math.max(0, record.totalAmount - paidAmount)
+      } else if (record.paymentStatus === "completed") {
+        if (record.paymentMethod === "cash") {
+          actualCashReceived += record.totalAmount
+        } else if (record.paymentMethod === "digital") {
+          actualDigitalReceived += record.totalAmount
+        }
+      } else {
+        // Pending payment
+        totalPendingAmount += record.totalAmount
+      }
+    })
+
+    const totalActualReceived = actualCashReceived + actualDigitalReceived
+
     // Calculate payment method breakdowns
-    const cashIncome = filteredIncomeRecords
-      .filter((record) => record.paymentMethod === "cash")
-      .reduce((sum, record) => sum + record.totalAmount, 0)
+    const cashOrders = filteredIncomeRecords.filter((record) => record.paymentMethod === "cash").length
+    const digitalOrders = filteredIncomeRecords.filter((record) => record.paymentMethod === "digital").length
+    const splitOrders = filteredIncomeRecords.filter((record) => record.paymentMethod === "split").length
 
-    const digitalIncome = filteredIncomeRecords
-      .filter((record) => record.paymentMethod === "digital")
-      .reduce((sum, record) => sum + record.totalAmount, 0)
+    const pendingPayments = filteredIncomeRecords.filter((record) => {
+      if (record.paymentMethod === "split") {
+        const paidAmount = (record.cashAmount || 0) + (record.digitalAmount || 0)
+        return paidAmount < record.totalAmount
+      }
+      return record.paymentStatus === "pending"
+    }).length
 
-    const pendingPayments = filteredIncomeRecords.filter((record) => record.paymentStatus === "pending").length
-    const completedPayments = filteredIncomeRecords.filter((record) => record.paymentStatus === "completed").length
+    const completedPayments = filteredIncomeRecords.filter((record) => {
+      if (record.paymentMethod === "split") {
+        const paidAmount = (record.cashAmount || 0) + (record.digitalAmount || 0)
+        return paidAmount >= record.totalAmount
+      }
+      return record.paymentStatus === "completed"
+    }).length
+
     const averageOrderValue = filteredIncomeRecords.length > 0 ? totalIncome / filteredIncomeRecords.length : 0
 
     return {
       totalIncome,
-      cashIncome,
-      digitalIncome,
+      actualCashReceived,
+      actualDigitalReceived,
+      totalActualReceived,
+      totalPendingAmount,
       totalExpenses,
-      profit: totalIncome - totalExpenses,
+      profit: totalActualReceived - totalExpenses,
       totalOrders: filteredIncomeRecords.length,
       totalExpenseRecords: filteredExpenseRecords.length,
       pendingPayments,
       completedPayments,
+      cashOrders,
+      digitalOrders,
+      splitOrders,
       averageOrderValue,
     }
   }
@@ -201,7 +269,6 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -215,7 +282,7 @@ export default function ReportsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Total Income */}
+          {/* Total Income vs Received */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -224,7 +291,16 @@ export default function ReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalIncome)}</div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalIncome)}</div>
+                <div className="text-sm text-green-700">Received: {formatCurrency(summary.totalActualReceived)}</div>
+                {summary.totalPendingAmount > 0 && (
+                  <div className="text-sm text-orange-600 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Pending: {formatCurrency(summary.totalPendingAmount)}
+                  </div>
+                )}
+              </div>
               <div className="text-xs text-muted-foreground mt-1">
                 {summary.totalOrders} orders • Avg: {formatCurrency(summary.averageOrderValue)}
               </div>
@@ -236,15 +312,18 @@ export default function ReportsPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Banknote className="h-4 w-4" />
-                Cash Income
+                Cash Received
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.cashIncome)}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.actualCashReceived)}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {summary.totalIncome > 0
-                  ? `${((summary.cashIncome / summary.totalIncome) * 100).toFixed(1)}% of total`
-                  : "0% of total"}
+                {summary.totalActualReceived > 0
+                  ? `${((summary.actualCashReceived / summary.totalActualReceived) * 100).toFixed(1)}% of received`
+                  : "0% of received"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {summary.cashOrders + summary.splitOrders} orders (incl. split)
               </div>
             </CardContent>
           </Card>
@@ -254,15 +333,18 @@ export default function ReportsPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Smartphone className="h-4 w-4" />
-                Digital Income
+                Digital Received
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.digitalIncome)}</div>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.actualDigitalReceived)}</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {summary.totalIncome > 0
-                  ? `${((summary.digitalIncome / summary.totalIncome) * 100).toFixed(1)}% of total`
-                  : "0% of total"}
+                {summary.totalActualReceived > 0
+                  ? `${((summary.actualDigitalReceived / summary.totalActualReceived) * 100).toFixed(1)}% of received`
+                  : "0% of received"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {summary.digitalOrders + summary.splitOrders} orders (incl. split)
               </div>
             </CardContent>
           </Card>
@@ -281,20 +363,16 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
 
-          {/* Net Profit */}
+          {/* Net Profit (Based on Actual Received) */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+              <CardTitle className="text-sm font-medium">Net Profit (Actual)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${summary.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
                 {formatCurrency(summary.profit)}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {summary.totalIncome > 0
-                  ? `${((summary.profit / summary.totalIncome) * 100).toFixed(1)}% margin`
-                  : "No income recorded"}
-              </div>
+              <div className="text-xs text-muted-foreground mt-1">Based on actual received amount</div>
             </CardContent>
           </Card>
 
@@ -329,33 +407,43 @@ export default function ReportsPage() {
                     <Banknote className="h-3 w-3" />
                     Cash:
                   </span>
-                  <span className="font-medium">
-                    {filteredIncomeRecords.filter((r) => r.paymentMethod === "cash").length}
-                  </span>
+                  <span className="font-medium">{summary.cashOrders}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="flex items-center gap-1">
                     <Smartphone className="h-3 w-3" />
                     Digital:
                   </span>
-                  <span className="font-medium">
-                    {filteredIncomeRecords.filter((r) => r.paymentMethod === "digital").length}
+                  <span className="font-medium">{summary.digitalOrders}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-1">
+                    <Receipt className="h-3 w-3" />
+                    Split:
                   </span>
+                  <span className="font-medium">{summary.splitOrders}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Average Order Value */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(summary.averageOrderValue)}</div>
-              <div className="text-xs text-muted-foreground mt-1">Based on {summary.totalOrders} orders</div>
-            </CardContent>
-          </Card>
+          {/* Pending Amount Alert */}
+          {summary.totalPendingAmount > 0 && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-orange-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  Pending Collections
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{formatCurrency(summary.totalPendingAmount)}</div>
+                <div className="text-xs text-orange-700 mt-1">
+                  Amount pending collection from {summary.pendingPayments} orders
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Filters */}
@@ -439,37 +527,71 @@ export default function ReportsPage() {
                         <TableRow>
                           <TableHead>Payment</TableHead>
                           <TableHead>Method</TableHead>
-                          <TableHead>Total</TableHead>
+                          <TableHead>Amount</TableHead>
                           <TableHead>Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredIncomeRecords.slice(0, 5).map((record) => (
-                          <TableRow key={record._id}>
-                            <TableCell>
-                              <Badge
-                                variant={record.paymentStatus === "completed" ? "default" : "destructive"}
-                                className="text-xs"
-                              >
-                                {record.paymentStatus}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                {record.paymentMethod === "cash" ? (
-                                  <Banknote className="h-3 w-3" />
+                        {filteredIncomeRecords.slice(0, 5).map((record) => {
+                          const paidAmount =
+                            record.paymentMethod === "split"
+                              ? (record.cashAmount || 0) + (record.digitalAmount || 0)
+                              : record.paymentStatus === "completed"
+                                ? record.totalAmount
+                                : 0
+                          const pendingAmount = record.totalAmount - paidAmount
+
+                          return (
+                            <TableRow key={record._id}>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <Badge variant={pendingAmount <= 0 ? "default" : "destructive"} className="text-xs">
+                                    {pendingAmount <= 0 ? "completed" : "pending"}
+                                  </Badge>
+                                  {pendingAmount > 0 && (
+                                    <div className="text-xs text-orange-600">
+                                      Pending: {formatCurrency(pendingAmount)}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {record.paymentMethod === "split" ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1">
+                                      <Banknote className="h-3 w-3" />
+                                      <span className="text-xs">{formatCurrency(record.cashAmount || 0)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Smartphone className="h-3 w-3" />
+                                      <span className="text-xs">{formatCurrency(record.digitalAmount || 0)}</span>
+                                    </div>
+                                  </div>
                                 ) : (
-                                  <Smartphone className="h-3 w-3" />
+                                  <div className="flex items-center gap-1">
+                                    {record.paymentMethod === "cash" ? (
+                                      <Banknote className="h-3 w-3" />
+                                    ) : (
+                                      <Smartphone className="h-3 w-3" />
+                                    )}
+                                    <span className="text-xs capitalize">{record.paymentMethod}</span>
+                                  </div>
                                 )}
-                                <span className="text-xs capitalize">{record.paymentMethod}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-green-600 font-medium">
-                              {formatCurrency(record.totalAmount)}
-                            </TableCell>
-                            <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="text-green-600 font-medium">{formatCurrency(record.totalAmount)}</div>
+                                  {paidAmount > 0 && paidAmount < record.totalAmount && (
+                                    <div className="text-xs text-muted-foreground">
+                                      Paid: {formatCurrency(paidAmount)}
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   )}
@@ -541,39 +663,90 @@ export default function ReportsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Customer/Table</TableHead>
-                        <TableHead>Payment Status</TableHead>
                         <TableHead>Payment Method</TableHead>
+                        <TableHead>Payment Status</TableHead>
+                        <TableHead>Amount Details</TableHead>
                         <TableHead>Items</TableHead>
-                        <TableHead>Total</TableHead>
                         <TableHead>Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredIncomeRecords.map((record) => (
-                        <TableRow key={record._id}>
-                          <TableCell>{record.customerName || `Table ${record.tableNumber}` || "Walk-in"}</TableCell>
-                          <TableCell>
-                            <Badge variant={record.paymentStatus === "completed" ? "default" : "destructive"}>
-                              {record.paymentStatus}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {record.paymentMethod === "cash" ? (
-                                <Banknote className="h-4 w-4" />
+                      {filteredIncomeRecords.map((record) => {
+                        const paidAmount =
+                          record.paymentMethod === "split"
+                            ? (record.cashAmount || 0) + (record.digitalAmount || 0)
+                            : record.paymentStatus === "completed"
+                              ? record.totalAmount
+                              : 0
+                        const pendingAmount = record.totalAmount - paidAmount
+
+                        return (
+                          <TableRow key={record._id}>
+                            <TableCell>{record.customerName || `Table ${record.tableNumber}` || "Walk-in"}</TableCell>
+                            <TableCell>
+                              {record.paymentMethod === "split" ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1">
+                                    <Banknote className="h-3 w-3" />
+                                    <span className="text-sm">Cash: {formatCurrency(record.cashAmount || 0)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Smartphone className="h-3 w-3" />
+                                    <span className="text-sm">
+                                      Digital: {formatCurrency(record.digitalAmount || 0)}
+                                    </span>
+                                  </div>
+                                </div>
                               ) : (
-                                <Smartphone className="h-4 w-4" />
+                                <div className="flex items-center gap-2">
+                                  {record.paymentMethod === "cash" ? (
+                                    <Banknote className="h-4 w-4" />
+                                  ) : (
+                                    <Smartphone className="h-4 w-4" />
+                                  )}
+                                  <span className="capitalize">{record.paymentMethod}</span>
+                                </div>
                               )}
-                              <span className="capitalize">{record.paymentMethod}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{record.items.length} items</TableCell>
-                          <TableCell className="text-green-600 font-medium">
-                            {formatCurrency(record.totalAmount)}
-                          </TableCell>
-                          <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={pendingAmount <= 0 ? "default" : "destructive"}>
+                                {pendingAmount <= 0 ? "completed" : "pending"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="text-green-600 font-medium">
+                                  Total: {formatCurrency(record.totalAmount)}
+                                </div>
+                                {record.subtotal && record.subtotal !== record.totalAmount && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Subtotal: {formatCurrency(record.subtotal)}
+                                  </div>
+                                )}
+                                {(record.discount || 0) > 0 && (
+                                  <div className="text-xs text-green-600">
+                                    Discount: -{formatCurrency(record.discount || 0)}
+                                  </div>
+                                )}
+                                {(record.tip || 0) > 0 && (
+                                  <div className="text-xs text-blue-600">Tip: +{formatCurrency(record.tip || 0)}</div>
+                                )}
+                                {paidAmount > 0 && paidAmount < record.totalAmount && (
+                                  <div className="text-xs text-green-700">Paid: {formatCurrency(paidAmount)}</div>
+                                )}
+                                {pendingAmount > 0 && (
+                                  <div className="text-xs text-orange-600 flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Pending: {formatCurrency(pendingAmount)}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{record.items.length} items</TableCell>
+                            <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 )}

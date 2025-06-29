@@ -10,9 +10,14 @@ export interface IIncomeRecord extends Document {
   tableNumber?: string
   customerName?: string
   items: IOrderItem[]
+  discount: number
+  tip: number
+  subtotal: number
   totalAmount: number
-  paymentMethod: "cash" | "digital"
+  paymentMethod: "cash" | "digital" | "split"
   paymentStatus: "pending" | "completed"
+  cashAmount?: number
+  digitalAmount?: number
   date: Date
   notes?: string
   createdBy: mongoose.Types.ObjectId
@@ -58,15 +63,42 @@ const IncomeRecordSchema = new Schema<IIncomeRecord>(
       required: true,
       min: 0,
     },
+    discount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    tip: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+    subtotal: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     paymentMethod: {
       type: String,
-      enum: ["cash", "digital"],
+      enum: ["cash", "digital", "split"],
       required: true,
     },
     paymentStatus: {
       type: String,
       enum: ["pending", "completed"],
       default: "pending",
+    },
+    cashAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    digitalAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
     date: {
       type: Date,
