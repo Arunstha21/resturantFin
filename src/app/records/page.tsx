@@ -11,6 +11,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
+  type Table as TanStackTable,
 } from "@tanstack/react-table"
 import { Navbar } from "@/components/layout/navbar"
 import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
@@ -22,8 +23,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency } from "@/lib/utils"
-import { deleteIncomeRecord } from "@/app/actions/income-records"
-import { deleteExpenseRecord } from "@/app/actions/expense-records"
 import {
   Trash2,
   Search,
@@ -36,6 +35,8 @@ import {
   ChevronsRight,
   Banknote,
   Smartphone,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { toast } from "sonner"
@@ -51,6 +52,8 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useOffline } from "@/components/hooks/use-offline"
+import { OfflineAPI } from "@/lib/offline/offline-api"
 
 export default function RecordsPage() {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([])
@@ -62,10 +65,11 @@ export default function RecordsPage() {
   const [incomeSorting, setIncomeSorting] = useState<SortingState>([])
   const [incomeColumnFilters, setIncomeColumnFilters] = useState<ColumnFiltersState>([])
   const [incomeGlobalFilter, setIncomeGlobalFilter] = useState("")
-
   const [expenseSorting, setExpenseSorting] = useState<SortingState>([])
   const [expenseColumnFilters, setExpenseColumnFilters] = useState<ColumnFiltersState>([])
   const [expenseGlobalFilter, setExpenseGlobalFilter] = useState("")
+
+  const { isOnline, isSyncing, pendingOperations } = useOffline()
 
   useEffect(() => {
     fetchRecords()
@@ -73,16 +77,17 @@ export default function RecordsPage() {
 
   const fetchRecords = async () => {
     try {
-      const [incomeResponse, expenseResponse] = await Promise.all([
-        fetch("/api/income-records"),
-        fetch("/api/expense-records"),
+      console.log("Fetching records...")
+      const [incomeData, expenseData] = await Promise.all([
+        OfflineAPI.getRecords("income"),
+        OfflineAPI.getRecords("expense"),
       ])
 
-      const incomeData = await incomeResponse.json()
-      const expenseData = await expenseResponse.json()
+      console.log("Income records:", incomeData.length)
+      console.log("Expense records:", expenseData.length)
 
-      setIncomeRecords(incomeData.records || [])
-      setExpenseRecords(expenseData.records || [])
+      setIncomeRecords(incomeData || [])
+      setExpenseRecords(expenseData || [])
     } catch (error) {
       toast.error("Failed to fetch records")
       console.error("Error fetching records:", error)
@@ -93,9 +98,11 @@ export default function RecordsPage() {
 
   const handleDeleteIncome = async (id: string) => {
     try {
-      await deleteIncomeRecord(id)
+      await OfflineAPI.deleteIncomeRecord(id)
       setIncomeRecords(incomeRecords.filter((record) => record._id !== id))
-      toast.success("Order deleted successfully")
+
+      const message = isOnline ? "Order deleted successfully" : "Order deleted offline - will sync when online"
+      toast.success(message)
     } catch (error) {
       toast.error("Failed to delete order")
       console.error("Error deleting order:", error)
@@ -104,9 +111,11 @@ export default function RecordsPage() {
 
   const handleDeleteExpense = async (id: string) => {
     try {
-      await deleteExpenseRecord(id)
+      await OfflineAPI.deleteExpenseRecord(id)
       setExpenseRecords(expenseRecords.filter((record) => record._id !== id))
-      toast.success("Expense deleted successfully")
+
+      const message = isOnline ? "Expense deleted successfully" : "Expense deleted offline - will sync when online"
+      toast.success(message)
     } catch (error) {
       toast.error("Failed to delete expense")
       console.error("Error deleting expense:", error)
@@ -133,7 +142,21 @@ export default function RecordsPage() {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ getValue }) => <div className="font-medium">{getValue() as string}</div>,
+        cell: ({ getValue, row }) => {
+          const value = getValue() as string
+          const record = row.original
+          return (
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{value}</span>
+              {record._offline && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline
+                </Badge>
+              )}
+            </div>
+          )
+        },
       },
       {
         accessorKey: "paymentMethod",
@@ -260,7 +283,7 @@ export default function RecordsPage() {
         enableSorting: false,
       },
     ],
-    [incomeRecords],
+    [incomeRecords, isOnline],
   )
 
   // Expense table columns
@@ -278,7 +301,21 @@ export default function RecordsPage() {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ getValue }) => <div className="font-medium">{getValue() as string}</div>,
+        cell: ({ getValue, row }) => {
+          const value = getValue() as string
+          const record = row.original
+          return (
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{value}</span>
+              {record._offline && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline
+                </Badge>
+              )}
+            </div>
+          )
+        },
       },
       {
         accessorKey: "category",
@@ -377,7 +414,7 @@ export default function RecordsPage() {
         enableSorting: false,
       },
     ],
-    [expenseRecords],
+    [expenseRecords, isOnline],
   )
 
   // Income table instance
@@ -426,7 +463,7 @@ export default function RecordsPage() {
     },
   })
 
-  const TablePagination = ({ table }: { table: any }) => (
+  const TablePagination = ({ table }: { table: TanStackTable<any> }) => (
     <div className="flex items-center justify-between space-x-2 py-4">
       <div className="flex items-center space-x-2">
         <p className="text-sm font-medium">Rows per page</p>
@@ -448,6 +485,7 @@ export default function RecordsPage() {
           </SelectContent>
         </Select>
       </div>
+
       <div className="flex items-center space-x-6 lg:space-x-8">
         <div className="flex w-[100px] items-center justify-center text-sm font-medium">
           Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
@@ -497,10 +535,31 @@ export default function RecordsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Financial Records</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Financial Records</h1>
+            {/* Status indicators */}
+            <div className="flex items-center gap-2 mt-2">
+              {!isOnline && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline Mode
+                </Badge>
+              )}
+              {isSyncing && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Syncing
+                </Badge>
+              )}
+              {pendingOperations > 0 && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  {pendingOperations} Pending Sync
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -517,27 +576,36 @@ export default function RecordsPage() {
 
           <TabsContent value="income" className="space-y-6">
             <div className="flex justify-between items-center">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search orders..."
-                  value={incomeGlobalFilter ?? ""}
-                  onChange={(e) => setIncomeGlobalFilter(e.target.value)}
-                  className="pl-8"
-                />
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search orders..."
+                    value={incomeGlobalFilter ?? ""}
+                    onChange={(event) => setIncomeGlobalFilter(String(event.target.value))}
+                    className="pl-8 w-[300px]"
+                  />
+                </div>
+                <Button variant="outline" onClick={fetchRecords} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
               </div>
-              <IncomeRecordDialog onSuccess={handleFormSuccess} />
+              <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>Recent Orders ({incomeTable.getFilteredRowModel().rows.length} total)</CardTitle>
+                <CardTitle>Orders & Income Records</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div>Loading...</div>
+                  <div className="flex justify-center items-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                    Loading records...
+                  </div>
                 ) : (
-                  <div className="space-y-4">
+                  <>
                     <div className="rounded-md border">
                       <Table>
                         <TableHeader>
@@ -556,7 +624,7 @@ export default function RecordsPage() {
                         <TableBody>
                           {incomeTable.getRowModel().rows?.length ? (
                             incomeTable.getRowModel().rows.map((row) => (
-                              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="items-center">
+                              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                                 {row.getVisibleCells().map((cell) => (
                                   <TableCell key={cell.id}>
                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -575,7 +643,7 @@ export default function RecordsPage() {
                       </Table>
                     </div>
                     <TablePagination table={incomeTable} />
-                  </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -583,27 +651,36 @@ export default function RecordsPage() {
 
           <TabsContent value="expenses" className="space-y-6">
             <div className="flex justify-between items-center">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search expenses..."
-                  value={expenseGlobalFilter ?? ""}
-                  onChange={(e) => setExpenseGlobalFilter(e.target.value)}
-                  className="pl-8"
-                />
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search expenses..."
+                    value={expenseGlobalFilter ?? ""}
+                    onChange={(event) => setExpenseGlobalFilter(String(event.target.value))}
+                    className="pl-8 w-[300px]"
+                  />
+                </div>
+                <Button variant="outline" onClick={fetchRecords} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
               </div>
-              <ExpenseRecordDialog onSuccess={handleFormSuccess} />
+              <ExpenseRecordDialog onSuccess={handleFormSuccess} mode="create" />
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>Recent Expenses ({expenseTable.getFilteredRowModel().rows.length} total)</CardTitle>
+                <CardTitle>Expense Records</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div>Loading...</div>
+                  <div className="flex justify-center items-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                    Loading records...
+                  </div>
                 ) : (
-                  <div className="space-y-4">
+                  <>
                     <div className="rounded-md border">
                       <Table>
                         <TableHeader>
@@ -641,7 +718,7 @@ export default function RecordsPage() {
                       </Table>
                     </div>
                     <TablePagination table={expenseTable} />
-                  </div>
+                  </>
                 )}
               </CardContent>
             </Card>

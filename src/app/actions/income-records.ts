@@ -9,7 +9,6 @@ import { authOptions } from "@/lib/auth"
 
 export async function createIncomeRecord(data: IncomeRecordInput) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }
@@ -25,13 +24,12 @@ export async function createIncomeRecord(data: IncomeRecordInput) {
 
   revalidatePath("/dashboard")
   revalidatePath("/records")
-  
+
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
 
 export async function updateIncomeRecord(id: string, data: IncomeRecordInput) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }
@@ -54,7 +52,6 @@ export async function updateIncomeRecord(id: string, data: IncomeRecordInput) {
 
 export async function deleteIncomeRecord(id: string) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }

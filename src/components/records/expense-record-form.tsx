@@ -7,23 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { showPromiseToast } from "@/lib/toast-utils"
-import {
-  expenseRecordSchema,
-  type ExpenseRecordInput,
-} from "@/lib/validations"
-import {
-  createExpenseRecord,
-  updateExpenseRecord,
-} from "@/app/actions/expense-records"
+import { expenseRecordSchema, type ExpenseRecordInput } from "@/lib/validations"
+import { OfflineAPI } from "@/lib/offline/offline-api"
 import type { ExpenseRecord } from "@/types"
+import { useOffline } from "../hooks/use-offline"
 
 interface ExpenseRecordFormProps {
   record?: ExpenseRecord
@@ -45,6 +34,7 @@ const expenseCategories = [
 
 export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const { isOnline } = useOffline()
 
   const {
     register,
@@ -78,30 +68,42 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
 
   const onSubmit = async (data: ExpenseRecordInput) => {
     setIsLoading(true)
-    let result
+
     try {
-      const promise = record
-        ? updateExpenseRecord(record._id, data)
-        : createExpenseRecord(data)
-      result = await promise
+      let result
+      if (record) {
+        result = await OfflineAPI.updateExpenseRecord(record._id, data)
+      } else {
+        result = await OfflineAPI.createExpenseRecord(data)
+      }
+
+      const successMessage = record
+        ? isOnline
+          ? "Expense updated successfully!"
+          : "Expense updated offline - will sync when online"
+        : isOnline
+          ? "Expense created successfully!"
+          : "Expense created offline - will sync when online"
+
       await showPromiseToast(Promise.resolve(result), {
         loading: record ? "Updating expense..." : "Creating expense...",
-        success: record ? "Expense updated successfully!" : "Expense created successfully!",
+        success: successMessage,
         error: "Something went wrong. Please try again.",
       })
+
       if (result?.success) {
-      if (!record) {
-        reset({
-          amount: 0,
-          category: "",
-          vendor: "",
-          description: "",
-          date: new Date(),
-          receiptNumber: "",
-          notes: "",
-        })
-      }
-      onSuccess?.()
+        if (!record) {
+          reset({
+            amount: 0,
+            category: "",
+            vendor: "",
+            description: "",
+            date: new Date(),
+            receiptNumber: "",
+            notes: "",
+          })
+        }
+        onSuccess?.()
       }
     } catch (error) {
       console.error("Form submission error:", error)
@@ -112,6 +114,18 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
 
   return (
     <div className="space-y-6">
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-orange-700">
+            <span className="text-sm font-medium">Working Offline</span>
+          </div>
+          <p className="text-xs text-orange-600 mt-1">
+            Changes will be saved locally and synced when you're back online.
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -123,17 +137,12 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
               placeholder="0.00"
               {...register("amount", { valueAsNumber: true })}
             />
-            {errors.amount && (
-              <p className="text-sm text-red-600">{errors.amount.message}</p>
-            )}
+            {errors.amount && <p className="text-sm text-red-600">{errors.amount.message}</p>}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Select
-              value={watch("category")}
-              onValueChange={(value) => setValue("category", value)}
-            >
+            <Select value={watch("category")} onValueChange={(value) => setValue("category", value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
@@ -145,9 +154,7 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
                 ))}
               </SelectContent>
             </Select>
-            {errors.category && (
-              <p className="text-sm text-red-600">{errors.category.message}</p>
-            )}
+            {errors.category && <p className="text-sm text-red-600">{errors.category.message}</p>}
           </div>
         </div>
 
@@ -156,7 +163,6 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
             <Label htmlFor="vendor">Vendor/Supplier</Label>
             <Input id="vendor" placeholder="ABC Food Supply Co." {...register("vendor")} />
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="receiptNumber">Receipt/Invoice Number</Label>
             <Input id="receiptNumber" placeholder="INV-12345" {...register("receiptNumber")} />
@@ -165,33 +171,19 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
 
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
-          <Input
-            id="description"
-            placeholder="Fresh vegetables and meat supplies"
-            {...register("description")}
-          />
-          {errors.description && (
-            <p className="text-sm text-red-600">{errors.description.message}</p>
-          )}
+          <Input id="description" placeholder="Fresh vegetables and meat supplies" {...register("description")} />
+          {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="date">Date</Label>
-          <Input
-            id="date"
-            type="date"
-            {...register("date", { valueAsDate: true })}
-          />
+          <Input id="date" type="date" {...register("date", { valueAsDate: true })} />
           {errors.date && <p className="text-sm text-red-600">{errors.date.message}</p>}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="notes">Notes (Optional)</Label>
-          <Textarea
-            id="notes"
-            placeholder="Additional notes..."
-            {...register("notes")}
-          />
+          <Textarea id="notes" placeholder="Additional notes..." {...register("notes")} />
         </div>
 
         <div className="flex gap-2 pt-4">

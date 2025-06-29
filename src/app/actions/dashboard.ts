@@ -10,7 +10,6 @@ import type { DashboardStats, ChartData } from "@/types"
 
 export async function getDashboardStats(dateFilter = "month"): Promise<DashboardStats> {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }
@@ -31,6 +30,7 @@ export async function getDashboardStats(dateFilter = "month"): Promise<Dashboard
   const totalIncome = incomeRecords.reduce((sum, record) => sum + record.totalAmount, 0)
   const totalExpenses = expenseRecords.reduce((sum, record) => sum + record.amount, 0)
   const pendingPaymentsCount = incomeRecords.filter((record) => record.paymentStatus === "pending").length
+
   const averageOrderValue = incomeRecords.length > 0 ? totalIncome / incomeRecords.length : 0
 
   return {
@@ -46,7 +46,6 @@ export async function getDashboardStats(dateFilter = "month"): Promise<Dashboard
 
 export async function getChartData(dateFilter = "month"): Promise<ChartData[]> {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }

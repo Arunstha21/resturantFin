@@ -1,89 +1,314 @@
-import { Suspense } from "react"
+"use client"
+
+import { useState, useEffect } from "react"
 import { Navbar } from "@/components/layout/navbar"
-import { StatsCards } from "@/components/dashboard/stats-cards"
-import { FinancialChart } from "@/components/dashboard/financial-chart"
-import { getDashboardStats, getChartData } from "@/app/actions/dashboard"
-import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { FilterSelect } from "@/components/dashboard/filter-select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { formatCurrency } from "@/lib/utils"
+import { TrendingUp, TrendingDown, DollarSign, Receipt, CreditCard, RefreshCw, WifiOff, Database } from "lucide-react"
+import type { DashboardStats } from "@/types"
+import { toast } from "sonner"
+import { useOffline } from "@/components/hooks/use-offline"
+import { OfflineAPI } from "@/lib/offline/offline-api"
 
-interface DashboardPageProps {
-  searchParams: Promise<{ filter?: string }>
-}
+export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalIncome: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    ordersCount: 0,
+    expensesCount: 0,
+    averageOrderValue: 0,
+    pendingPaymentsCount: 0,
+  })
+  const [isLoading, setIsLoading] = useState(true)
+  const [dateFilter, setDateFilter] = useState("month")
+  const [isFromCache, setIsFromCache] = useState(false)
 
-export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const resolvedSearchParams = await searchParams
-  const filter = resolvedSearchParams.filter || "month"
+  const { isOnline, isSyncing, pendingOperations } = useOffline()
+
+  useEffect(() => {
+    fetchDashboardStats()
+  }, [dateFilter])
+
+  const fetchDashboardStats = async () => {
+    setIsLoading(true)
+    try {
+      console.log("Fetching dashboard stats...")
+      const data = await OfflineAPI.getDashboardStats(dateFilter)
+      console.log("Dashboard stats:", data)
+
+      setStats(data)
+      setIsFromCache(!!data._fromCache)
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error)
+      toast.error("Failed to fetch dashboard data")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    fetchDashboardStats()
+  }
+
+  const StatCard = ({
+    title,
+    value,
+    description,
+    icon: Icon,
+    trend,
+    trendValue,
+  }: {
+    title: string
+    value: string | number
+    description: string
+    icon: any
+    trend?: "up" | "down" | "neutral"
+    trendValue?: string
+  }) => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-xs text-muted-foreground">{description}</p>
+          {trend && trendValue && (
+            <div
+              className={`flex items-center gap-1 text-xs ${
+                trend === "up" ? "text-green-600" : trend === "down" ? "text-red-600" : "text-muted-foreground"
+              }`}
+            >
+              {trend === "up" && <TrendingUp className="h-3 w-3" />}
+              {trend === "down" && <TrendingDown className="h-3 w-3" />}
+              <span>{trendValue}</span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
-      <main className="w-full max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-1 sm:hidden">Financial overview and analytics</p>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            {/* Status indicators */}
+            <div className="flex items-center gap-2 mt-2">
+              {!isOnline && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Offline Mode
+                </Badge>
+              )}
+              {isSyncing && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Syncing
+                </Badge>
+              )}
+              {pendingOperations > 0 && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  {pendingOperations} Pending Sync
+                </Badge>
+              )}
+              {isFromCache && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                  <Database className="h-3 w-3 mr-1" />
+                  Cached Data
+                </Badge>
+              )}
+            </div>
           </div>
-          <div className="flex items-center justify-end sm:justify-start">
-            <FilterSelect />
+
+          <div className="flex items-center gap-4">
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
           </div>
         </div>
 
-        {/* Content Grid */}
-        <div className="space-y-4 sm:space-y-6">
-          {/* Stats Cards */}
-          <Suspense fallback={<StatsCardsSkeleton />}>
-            <StatsCardsWrapper filter={filter} />
-          </Suspense>
+        {/* Offline Notice */}
+        {!isOnline && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 text-orange-700">
+              <WifiOff className="h-5 w-5" />
+              <span className="font-medium">Working Offline</span>
+            </div>
+            <p className="text-sm text-orange-600 mt-1">
+              Dashboard data is from local storage. Connect to the internet to get the latest updates.
+            </p>
+          </div>
+        )}
 
-          {/* Chart Section */}
-          <Suspense fallback={<ChartSkeleton />}>
-            <ChartWrapper filter={filter} />
-          </Suspense>
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <RefreshCw className="h-8 w-8 animate-spin mr-3" />
+            <span className="text-lg">Loading dashboard data...</span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Key Metrics */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Total Income"
+                value={formatCurrency(stats.totalIncome)}
+                description={`From ${stats.ordersCount} orders`}
+                icon={DollarSign}
+                trend="up"
+                trendValue="+12.5%"
+              />
+              <StatCard
+                title="Total Expenses"
+                value={formatCurrency(stats.totalExpenses)}
+                description={`From ${stats.expensesCount} expenses`}
+                icon={CreditCard}
+                trend="down"
+                trendValue="-2.3%"
+              />
+              <StatCard
+                title="Net Profit"
+                value={formatCurrency(stats.netProfit)}
+                description={`${((stats.netProfit / (stats.totalIncome || 1)) * 100).toFixed(1)}% margin`}
+                icon={TrendingUp}
+                trend={stats.netProfit >= 0 ? "up" : "down"}
+                trendValue={stats.netProfit >= 0 ? "+5.2%" : "-8.1%"}
+              />
+              <StatCard
+                title="Avg Order Value"
+                value={formatCurrency(stats.averageOrderValue)}
+                description="Per order average"
+                icon={Receipt}
+                trend="up"
+                trendValue="+3.1%"
+              />
+            </div>
+
+            {/* Additional Stats */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Order Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total Orders</span>
+                    <span className="font-medium">{stats.ordersCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Pending Payments</span>
+                    <Badge variant={stats.pendingPaymentsCount > 0 ? "destructive" : "default"}>
+                      {stats.pendingPaymentsCount}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Completed Payments</span>
+                    <Badge variant="default">{stats.ordersCount - stats.pendingPaymentsCount}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Financial Health</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Revenue</span>
+                    <span className="font-medium text-green-600">{formatCurrency(stats.totalIncome)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Costs</span>
+                    <span className="font-medium text-red-600">{formatCurrency(stats.totalExpenses)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-sm font-medium">Net Profit</span>
+                    <span className={`font-bold ${stats.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {formatCurrency(stats.netProfit)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Performance</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Profit Margin</span>
+                    <span className="font-medium">
+                      {stats.totalIncome > 0 ? `${((stats.netProfit / stats.totalIncome) * 100).toFixed(1)}%` : "0%"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Avg Order Value</span>
+                    <span className="font-medium">{formatCurrency(stats.averageOrderValue)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Orders per Day</span>
+                    <span className="font-medium">
+                      {dateFilter === "today"
+                        ? stats.ordersCount
+                        : dateFilter === "week"
+                          ? Math.round(stats.ordersCount / 7)
+                          : Math.round(stats.ordersCount / 30)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Data Source Info */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span>
+                      Data for: {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : "This Month"}
+                    </span>
+                    {isFromCache && (
+                      <Badge variant="outline" className="text-xs">
+                        <Database className="h-3 w-3 mr-1" />
+                        From Cache
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>Last updated: {new Date().toLocaleTimeString()}</span>
+                    {!isOnline && (
+                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
+                        <WifiOff className="h-3 w-3 mr-1" />
+                        Offline
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
     </div>
-  )
-}
-
-async function StatsCardsWrapper({ filter }: { filter: string }) {
-  const stats = await getDashboardStats(filter)
-  return <StatsCards stats={stats} />
-}
-
-async function ChartWrapper({ filter }: { filter: string }) {
-  const chartData = await getChartData(filter)
-  return <FinancialChart data={chartData} />
-}
-
-function StatsCardsSkeleton() {
-  return (
-    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i} className="min-h-[100px] sm:min-h-[120px]">
-          <CardContent className="p-4 sm:p-6">
-            <Skeleton className="h-3 sm:h-4 w-[80px] sm:w-[100px] mb-2" />
-            <Skeleton className="h-6 sm:h-8 w-[100px] sm:w-[120px]" />
-            <Skeleton className="h-2 sm:h-3 w-[60px] sm:w-[80px] mt-2" />
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function ChartSkeleton() {
-  return (
-    <Card className="w-full">
-      <CardContent className="p-4 sm:p-6">
-        <div className="space-y-3 mb-4">
-          <Skeleton className="h-5 sm:h-6 w-[150px] sm:w-[200px]" />
-          <Skeleton className="h-3 sm:h-4 w-[200px] sm:w-[300px]" />
-        </div>
-        <Skeleton className="h-[300px] sm:h-[400px] w-full rounded-lg" />
-      </CardContent>
-    </Card>
   )
 }

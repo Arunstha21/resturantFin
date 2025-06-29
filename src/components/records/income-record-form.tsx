@@ -10,14 +10,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { showPromiseToast } from "@/lib/toast-utils"
+import { toast } from "sonner"
 import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
-import { createIncomeRecord, updateIncomeRecord } from "@/app/actions/income-records"
+import { OfflineAPI } from "@/lib/offline/offline-api"
 import { Plus, Trash2, Calculator, ChevronUp, ChevronDown, FileText } from "lucide-react"
 import type { IncomeRecord } from "@/types"
 import { formatCurrency } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { useOffline } from "../hooks/use-offline"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -56,8 +57,20 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [showNotes, setShowNotes] = useState(false)
   const [isSplitPayment, setIsSplitPayment] = useState(false)
 
+  const { isOnline } = useOffline()
+
   const safeRecord: IncomeRecordInput = record
-    ? record
+    ? {
+        ...record,
+        date: record.date instanceof Date ? record.date : new Date(record.date),
+        discount: record.discount || 0,
+        tip: record.tip || 0,
+        cashAmount: record.cashAmount || 0,
+        digitalAmount: record.digitalAmount || 0,
+        tableNumber: record.tableNumber || "",
+        customerName: record.customerName || "",
+        notes: record.notes || "",
+      }
     : {
         items: [{ name: "", quantity: 1, price: 0 }],
         totalAmount: 0,
@@ -131,6 +144,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         setValue("paymentStatus", "pending")
       }
     }
+    // Note: When not split payment, payment status is manually controlled
   }, [watch, setValue, showDiscount, showTip, isSplitPayment])
 
   // Recalculate when items change
@@ -175,12 +189,26 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       setValue("paymentMethod", "cash")
       setValue("cashAmount", 0)
       setValue("digitalAmount", 0)
+      // Reset payment status to allow manual selection
+      setValue("paymentStatus", "pending")
     }
-  }, [isSplitPayment, setValue, watch])
+
+    // Trigger recalculation after state change
+    setTimeout(() => {
+      calculateTotals()
+    }, 100)
+  }, [isSplitPayment, setValue])
+
+  // Initialize split payment state based on existing data
+  useEffect(() => {
+    const paymentMethod = watch("paymentMethod")
+    if (paymentMethod === "split") {
+      setIsSplitPayment(true)
+    }
+  }, [watch])
 
   const addMenuItem = (menuItem: (typeof menuItems)[0]) => {
     const currentItems = watch("items") || []
-
     // Check if this is the default empty item (first item with empty name)
     const hasDefaultEmptyItem =
       currentItems.length === 1 &&
@@ -226,26 +254,31 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   const onSubmit = async (data: IncomeRecordInput) => {
     setIsLoading(true)
-    let result
 
     try {
-      // Ensure all calculations are up to date and tip is a number
+      // Ensure all calculations are up to date
       const formData = {
         ...data,
         totalAmount: Number(data.totalAmount) || 0,
       }
 
-      const promise = record ? updateIncomeRecord(record._id, formData) : createIncomeRecord(formData)
-      result = await promise
-
-      await showPromiseToast(Promise.resolve(result), {
-        loading: record ? "Updating order..." : "Creating order...",
-        success: record ? "Order updated successfully!" : "Order created successfully!",
-        error: "Something went wrong. Please try again.",
-      })
+      let result
+      if (record) {
+        result = await OfflineAPI.updateIncomeRecord(record._id, formData)
+        const successMessage = isOnline
+          ? "Order updated successfully!"
+          : "Order updated offline - will sync when online"
+        toast.success(successMessage)
+      } else {
+        result = await OfflineAPI.createIncomeRecord(formData)
+        const successMessage = isOnline
+          ? "Order created successfully!"
+          : "Order created offline - will sync when online"
+        toast.success(successMessage)
+      }
 
       if (result?.success) {
-        if (!record)
+        if (!record) {
           reset({
             items: [{ name: "", quantity: 1, price: 0 }],
             totalAmount: 0,
@@ -261,10 +294,12 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             customerName: "",
             notes: "",
           })
+        }
         onSuccess?.()
       }
     } catch (error) {
       console.error("Form submission error:", error)
+      toast.error("Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -279,6 +314,18 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   return (
     <div className="w-full space-y-6">
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-orange-700">
+            <span className="text-sm font-medium">Working Offline</span>
+          </div>
+          <p className="text-xs text-orange-600 mt-1">
+            Changes will be saved locally and synced when you're back online.
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full overflow-y-auto">
         {/* Order Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -367,7 +414,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     <p className="text-xs text-red-600 mt-1">{errors.items[index]?.name?.message}</p>
                   )}
                 </div>
-
                 <div className="col-span-4 md:col-span-2">
                   <Label className="text-xs">Quantity</Label>
                   <Input
@@ -381,7 +427,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     <p className="text-xs text-red-600 mt-1">{errors.items[index]?.quantity?.message}</p>
                   )}
                 </div>
-
                 <div className="col-span-4 md:col-span-2">
                   <Label className="text-xs">Price</Label>
                   <Input
@@ -396,14 +441,12 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     <p className="text-xs text-red-600 mt-1">{errors.items[index]?.price?.message}</p>
                   )}
                 </div>
-
                 <div className="col-span-6 md:col-span-1">
                   <Label className="text-xs">Total</Label>
                   <div className="text-sm font-medium py-2 px-2 bg-muted rounded mt-1">
                     {formatCurrency((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.price || 0))}
                   </div>
                 </div>
-
                 <div className="col-span-6 md:col-span-1">
                   <Button
                     type="button"
@@ -447,7 +490,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               </div>
             </Button>
           </CollapsibleTrigger>
-
           <CollapsibleContent className="space-y-4 pt-4">
             {/* Discount Section */}
             <div className="space-y-3 border rounded-lg p-4">
@@ -466,7 +508,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                   Apply Discount
                 </Label>
               </div>
-
               {showDiscount && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
                   <div className="space-y-2">
@@ -480,7 +521,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     />
                     {errors.discount && <p className="text-sm text-red-600">{errors.discount.message}</p>}
                   </div>
-
                   <div className="space-y-2">
                     <Label>Applied Discount</Label>
                     <div className="text-sm font-medium py-2 px-3 bg-muted rounded">
@@ -508,7 +548,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                   Add Tip
                 </Label>
               </div>
-
               {showTip && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
                   <div className="space-y-2">
@@ -522,7 +561,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     />
                     {errors.tip && <p className="text-sm text-red-600">{errors.tip.message}</p>}
                   </div>
-
                   <div className="space-y-2">
                     <Label>Applied Tip</Label>
                     <div className="text-sm font-medium py-2 px-3 bg-muted rounded">
@@ -542,21 +580,18 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               <span>Subtotal:</span>
               <span>{formatCurrency(watch("subtotal") || 0)}</span>
             </div>
-
             {showDiscount && (watch("discount") || 0) > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Discount:</span>
                 <span>-{formatCurrency(watch("discount") || 0)}</span>
               </div>
             )}
-
             {showTip && (watch("tip") || 0) > 0 && (
               <div className="flex justify-between text-blue-600">
                 <span>Tip:</span>
                 <span>+{formatCurrency(watch("tip") || 0)}</span>
               </div>
             )}
-
             <Separator />
             <div className="flex justify-between font-bold text-lg">
               <span>Total:</span>
@@ -568,6 +603,11 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <Badge variant={watch("paymentStatus") === "completed" ? "default" : "destructive"}>
               {watch("paymentStatus") === "completed" ? "Payment Complete" : "Payment Pending"}
             </Badge>
+            {!isOnline && (
+              <Badge variant="outline" className="text-orange-600 border-orange-200">
+                Offline
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -602,7 +642,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                 </Select>
                 {errors.paymentMethod && <p className="text-sm text-red-600">{errors.paymentMethod.message}</p>}
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="paymentStatus">Payment Status</Label>
                 <Select
@@ -634,7 +673,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                   />
                   {errors.cashAmount && <p className="text-sm text-red-600">{errors.cashAmount.message}</p>}
                 </div>
-
                 <div className="space-y-2">
                   <Label>Digital Amount</Label>
                   <Input
@@ -698,7 +736,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               </div>
             </Button>
           </CollapsibleTrigger>
-
           <CollapsibleContent className="pt-4">
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (Optional)</Label>

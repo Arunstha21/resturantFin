@@ -9,7 +9,6 @@ import { authOptions } from "@/lib/auth"
 
 export async function createExpenseRecord(data: ExpenseRecordInput) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }
@@ -31,7 +30,6 @@ export async function createExpenseRecord(data: ExpenseRecordInput) {
 
 export async function updateExpenseRecord(id: string, data: ExpenseRecordInput) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }
@@ -54,7 +52,6 @@ export async function updateExpenseRecord(id: string, data: ExpenseRecordInput) 
 
 export async function deleteExpenseRecord(id: string) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
     throw new Error("Unauthorized")
   }

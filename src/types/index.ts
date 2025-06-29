@@ -1,35 +1,28 @@
-export interface User {
-  _id: string
-  email: string
-  name: string
-  role: "admin" | "manager"
-  createdAt: Date
-}
-
-export interface OrderItem {
-  name: string
-  quantity: number
-  price: number
-}
-
 export interface IncomeRecord {
   _id: string
-  tableNumber?: string
-  customerName?: string
-  items: OrderItem[]
-  subtotal: number
-  discount: number
-  tip: number
+  items: Array<{
+    name: string
+    quantity: number
+    price: number
+  }>
   totalAmount: number
+  subtotal: number
+  discount?: number
+  tip?: number
   paymentMethod: "cash" | "digital" | "split"
   paymentStatus: "pending" | "completed"
   cashAmount?: number
   digitalAmount?: number
-  date: Date
+  date: Date | string
+  tableNumber?: string
+  customerName?: string
   notes?: string
   createdBy: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string
+  updatedAt: Date | string
+  _offline?: boolean
+  _localId?: string
+  _timestamp?: number
 }
 
 export interface ExpenseRecord {
@@ -38,12 +31,28 @@ export interface ExpenseRecord {
   category: string
   vendor?: string
   description: string
-  date: Date
+  date: Date | string
   receiptNumber?: string
   notes?: string
   createdBy: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string
+  updatedAt: Date | string
+  _offline?: boolean
+  _localId?: string
+  _timestamp?: number
+}
+
+export interface User {
+  _id: string
+  name: string
+  email: string
+  role: "admin" | "manager"
+  isActive: boolean
+  createdAt: Date | string
+  updatedAt: Date | string
+  _offline?: boolean
+  _localId?: string
+  _timestamp?: number
 }
 
 export interface DashboardStats {
@@ -54,6 +63,7 @@ export interface DashboardStats {
   expensesCount: number
   averageOrderValue: number
   pendingPaymentsCount: number
+  _fromCache?: boolean
 }
 
 export interface ChartData {
@@ -62,13 +72,4 @@ export interface ChartData {
   expenses: number
   profit: number
   orders: number
-}
-
-export type DateFilter = "today" | "week" | "month" | "custom"
-
-export interface FilterOptions {
-  dateFilter: DateFilter
-  category?: string
-  startDate?: Date
-  endDate?: Date
 }
