@@ -65,4 +65,4 @@ type ClientType = "window" | "worker" | "sharedworker" | "all"
 type FrameType = "auxiliary" | "top-level" | "nested" | "none"
 type VisibilityState = "hidden" | "visible" | "prerender"
 
-declare var self: ServiceWorkerGlobalScope
+declare const self: ServiceWorkerGlobalScope

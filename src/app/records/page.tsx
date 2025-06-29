@@ -575,23 +575,30 @@ export default function RecordsPage() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <div className="relative">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
+                <div className="relative w-full sm:w-[300px]">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search orders..."
                     value={incomeGlobalFilter ?? ""}
                     onChange={(event) => setIncomeGlobalFilter(String(event.target.value))}
-                    className="pl-8 w-[300px]"
+                    className="pl-8 w-full"
                   />
                 </div>
-                <Button variant="outline" onClick={fetchRecords} disabled={isLoading}>
+                <Button
+                  variant="outline"
+                  onClick={fetchRecords}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto"
+                >
                   <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
               </div>
-              <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
+              <div className="w-full md:w-auto">
+                <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
+              </div>
             </div>
 
             <Card>

@@ -376,6 +376,7 @@ export class OfflineAPI {
       const cacheKey = `/api/dashboard?filter=${dateFilter}`
       await offlineDB.cacheApiResponse(cacheKey, data, 5)
     } catch (error) {
+        console.error("Failed to fetch dashboard stats in background:", error)
       // Silent fail for background fetch
     }
   }

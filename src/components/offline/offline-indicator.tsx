@@ -3,18 +3,43 @@
 import { useOffline } from "../hooks/use-offline"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Wifi, WifiOff, RefreshCw, Clock, Database, Trash2, ChevronDown, ChevronUp, CheckCircle } from "lucide-react"
+import {
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Clock,
+  Database,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
+  Loader2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { useState, useEffect } from "react"
 
 export function OfflineIndicator() {
-  const { isOnline, isSyncing, pendingOperations, lastSyncTime, manualSync, clearLocalData, getStorageStats } =
-    useOffline()
+  const {
+    isOnline,
+    isSyncing,
+    pendingOperations,
+    lastSyncTime,
+    isCheckingConnectivity,
+    manualSync,
+    clearLocalData,
+    getStorageStats,
+    syncManager,
+  } = useOffline()
 
   const [isExpanded, setIsExpanded] = useState(false)
   const [storageStats, setStorageStats] = useState<{ [key: string]: number }>({})
+
+  // Update sync manager when connectivity status changes
+  useEffect(() => {
+    syncManager.setOnlineStatus(isOnline)
+  }, [isOnline, syncManager])
 
   useEffect(() => {
     if (isExpanded) {
@@ -42,6 +67,7 @@ export function OfflineIndicator() {
       toast.success("Sync completed successfully")
     } catch (error) {
       toast.error("Sync failed. Please try again.")
+      console.error("Sync error:", error)
     }
   }
 
@@ -56,12 +82,12 @@ export function OfflineIndicator() {
       setStorageStats({})
     } catch (error) {
       toast.error("Failed to clear local data")
+      console.error("Clear data error:", error)
     }
   }
 
   // Show different states
-  const hasIssues = !isOnline || isSyncing || pendingOperations > 0
-  const isAllGood = isOnline && !isSyncing && pendingOperations === 0
+  const isAllGood = isOnline && !isSyncing && pendingOperations === 0 && !isCheckingConnectivity
 
   // Don't show anything if everything is perfect and not expanded
   if (isAllGood && !isExpanded) {
@@ -84,19 +110,29 @@ export function OfflineIndicator() {
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <Card className="bg-background/95 backdrop-blur-sm shadow-lg border">
           <CollapsibleTrigger asChild>
-            <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="flex items-center justify-between">
                 {/* Status Section */}
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                   {/* Connection Status */}
-                  {isOnline ? (
+                  {isCheckingConnectivity ? (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex-shrink-0">
+                        <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-blue-700 dark:text-blue-300 truncate">Checking...</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400 truncate">Testing connectivity</div>
+                      </div>
+                    </div>
+                  ) : isOnline ? (
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div className="flex items-center justify-center w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex-shrink-0">
                         <Wifi className="h-4 w-4 text-green-600 dark:text-green-400" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-green-700 dark:text-green-300 truncate">Online</div>
-                        <div className="text-xs text-green-600 dark:text-green-400 truncate">Connected</div>
+                        <div className="text-xs text-green-600 dark:text-green-400 truncate">Internet available</div>
                       </div>
                     </div>
                   ) : (
@@ -106,7 +142,7 @@ export function OfflineIndicator() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-red-700 dark:text-red-300 truncate">Offline</div>
-                        <div className="text-xs text-red-600 dark:text-red-400 truncate">No connection</div>
+                        <div className="text-xs text-red-600 dark:text-red-400 truncate">No internet</div>
                       </div>
                     </div>
                   )}
@@ -145,20 +181,35 @@ export function OfflineIndicator() {
                   )}
                 </Button>
               </div>
-            </CardHeader>
+            </div>
           </CollapsibleTrigger>
 
           <CollapsibleContent>
             <CardContent className="pt-0 space-y-4">
+              {/* Connectivity Check Status */}
+              {isCheckingConnectivity && (
+                <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Loader2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 animate-spin flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-blue-800 dark:text-blue-200">Testing Connectivity</div>
+                      <div className="text-xs text-blue-700 dark:text-blue-300 mt-1 leading-relaxed">
+                        Checking if internet is actually available...
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Offline Warning */}
-              {!isOnline && (
+              {!isOnline && !isCheckingConnectivity && (
                 <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <WifiOff className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-red-800 dark:text-red-200">Working Offline</div>
+                      <div className="text-sm font-medium text-red-800 dark:text-red-200">No Internet Connection</div>
                       <div className="text-xs text-red-700 dark:text-red-300 mt-1 leading-relaxed">
-                        Your changes are saved locally and will sync when you're back online.
+                        Your changes are saved locally and will sync when internet is restored.
                       </div>
                     </div>
                   </div>
@@ -190,7 +241,7 @@ export function OfflineIndicator() {
                         {pendingOperations} Operation{pendingOperations !== 1 ? "s" : ""} Pending
                       </div>
                       <div className="text-xs text-orange-700 dark:text-orange-300 mt-1 leading-relaxed">
-                        These changes will sync automatically when you're online.
+                        These changes will sync automatically when internet is available.
                       </div>
                     </div>
                   </div>
@@ -205,7 +256,7 @@ export function OfflineIndicator() {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-green-800 dark:text-green-200">All Synced</div>
                       <div className="text-xs text-green-700 dark:text-green-300 mt-1 leading-relaxed">
-                        Everything is up to date and working perfectly.
+                        Internet connection is stable and all data is synced.
                       </div>
                     </div>
                   </div>

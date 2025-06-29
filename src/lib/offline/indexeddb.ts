@@ -308,6 +308,7 @@ class OfflineDB {
         const records = await this.getRecords(store)
         stats[store] = records.length
       } catch (error) {
+        console.error(`Error getting records from ${store}:`, error)
         stats[store] = 0
       }
     }

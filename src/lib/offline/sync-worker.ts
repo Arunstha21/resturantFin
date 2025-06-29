@@ -248,8 +248,6 @@ export class SyncManager {
         endpoint = "/api/users"
         break
     }
-
-    let response: Response
     let method = ""
     let body = ""
 
@@ -285,7 +283,7 @@ export class SyncManager {
       requestOptions.body = body
     }
 
-    response = await fetch(endpoint, requestOptions)
+    const response: Response  = await fetch(endpoint, requestOptions)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -319,6 +317,7 @@ export class SyncManager {
         try {
           await offlineDB.deleteRecord(storeName, operation.originalId)
         } catch (error) {
+            console.warn(`Failed to delete temporary local record ${operation.originalId}:`, error)
           // Ignore if record doesn't exist
         }
       }

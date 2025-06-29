@@ -99,7 +99,8 @@ async function handleApiRequest(request: Request): Promise<Response> {
     return networkResponse
   } catch (error) {
     console.log("Network failed, trying cache:", url.pathname)
-
+    console.log("Error fetching from network:", error);
+    
     // Network failed, try cache
     const cachedResponse = await caches.match(request)
     if (cachedResponse) {
@@ -134,6 +135,8 @@ async function handleStaticRequest(request: Request): Promise<Response> {
 
     return networkResponse
   } catch (error) {
+    console.log("Network failed for static asset, trying cache:", error);
+    console.log("Network failed for static asset, trying cache:", request.url)
     // Try cache
     const cachedResponse = await caches.match(request)
     if (cachedResponse) {
