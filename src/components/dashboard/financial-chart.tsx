@@ -1,8 +1,25 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Area, AreaChart, XAxis, YAxis, ResponsiveContainer, Legend } from "recharts"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
+import {
+  Area,
+  AreaChart,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Legend,
+} from "recharts"
 import type { ChartData } from "@/types"
 
 interface FinancialChartProps {
@@ -41,15 +58,13 @@ export function FinancialChart({ data }: FinancialChartProps) {
     const diffTime = Math.abs(now.getTime() - date.getTime())
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-    // For mobile, show shorter date format
-    if (window.innerWidth < 768) {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
       if (diffDays <= 7) {
         return date.toLocaleDateString("en-US", { weekday: "short" })
       }
       return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     }
 
-    // For desktop, show full date
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
   }
 
@@ -59,13 +74,18 @@ export function FinancialChart({ data }: FinancialChartProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <CardTitle className="text-lg sm:text-xl">Financial Trends</CardTitle>
-            <CardDescription className="text-sm">Income, expenses, and profit over time</CardDescription>
+            <CardDescription className="text-sm">
+              Income, expenses, and profit over time
+            </CardDescription>
           </div>
           {/* Mobile Legend */}
           <div className="flex flex-wrap gap-4 sm:hidden">
             {Object.entries(chartConfig).map(([key, config]) => (
               <div key={key} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: config.color }} />
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: config.color }}
+                />
                 <span className="text-xs font-medium">{config.label}</span>
               </div>
             ))}
@@ -77,12 +97,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0,
-              }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               <XAxis
                 dataKey="date"
@@ -103,11 +118,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
 
               {/* Desktop Legend */}
               <Legend
-                wrapperStyle={{
-                  paddingTop: "20px",
-                  fontSize: "14px",
-                }}
-                className="hidden sm:block"
+                wrapperStyle={{ paddingTop: 20, fontSize: 14 }}
               />
 
               <ChartTooltip
@@ -121,7 +132,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                       })
                     }
                     formatter={(value, name) => [
-                      `$${Number(value).toLocaleString()}`,
+                      `₹${Number(value).toLocaleString()}`,
                       chartConfig[name as keyof typeof chartConfig]?.label || name,
                     ]}
                     className="w-auto min-w-[200px]"
@@ -137,6 +148,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                 fill={chartConfig.income.color}
                 fillOpacity={0.6}
                 strokeWidth={2}
+                isAnimationActive={true}
               />
               <Area
                 type="monotone"
@@ -146,6 +158,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                 fill={chartConfig.expenses.color}
                 fillOpacity={0.6}
                 strokeWidth={2}
+                isAnimationActive={true}
               />
               <Area
                 type="monotone"
@@ -155,6 +168,7 @@ export function FinancialChart({ data }: FinancialChartProps) {
                 fill={chartConfig.profit.color}
                 fillOpacity={0.6}
                 strokeWidth={2}
+                isAnimationActive={true}
               />
             </AreaChart>
           </ResponsiveContainer>

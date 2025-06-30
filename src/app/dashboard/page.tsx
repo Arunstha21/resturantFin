@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/utils"
 import { TrendingUp, TrendingDown, DollarSign, Receipt, CreditCard, RefreshCw, WifiOff, Database } from "lucide-react"
-import type { DashboardStats } from "@/types"
+import type { ChartData, DashboardStats } from "@/types"
 import { toast } from "sonner"
 import { useOffline } from "@/components/hooks/use-offline"
 import { OfflineAPI } from "@/lib/offline/offline-api"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getChartData } from "../actions/dashboard"
+import { FinancialChart } from "@/components/dashboard/financial-chart"
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
@@ -278,6 +281,21 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+            
+            {/* Financial Chart */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Financial Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {isLoading ? (
+                  <ChartSkeleton />
+                ) : (
+                  <ChartWrapper filter={dateFilter} />
+                )}
+              </CardContent>
+            </Card>
+            
 
             {/* Data Source Info */}
             <Card>
@@ -312,3 +330,41 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+function ChartWrapper({ filter }: { filter: string }) {
+  const [data, setData] = useState<ChartData[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const chartData = await getChartData(filter)
+        setData(chartData)
+      } catch (error) {
+        console.error("Error fetching chart data:", error)
+        toast.error("Failed to load chart data")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [filter])
+
+  if (loading || !data) {
+    return <ChartSkeleton />
+  }
+  return <FinancialChart data={data} />
+}
+
+function ChartSkeleton() {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <Skeleton className="h-[400px] w-full" />
+      </CardContent>
+    </Card>
+  )
+}
+
