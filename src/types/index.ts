@@ -18,6 +18,8 @@ export interface IncomeRecord {
   customerName?: string
   notes?: string
   createdBy: string
+  isDueAccount?: boolean
+  dueAccountId?: string
   createdAt: Date | string
   updatedAt: Date | string
   _offline?: boolean
@@ -72,4 +74,31 @@ export interface ChartData {
   expenses: number
   profit: number
   orders: number
+}
+
+export interface DueAccount {
+  _id: string
+  customerName: string
+  customerPhone?: string
+  customerEmail?: string
+  totalDueAmount: number
+  totalOrders: number
+  pendingOrders: number
+  lastOrderDate: Date | string
+  createdBy: string
+  createdAt: Date | string
+  updatedAt: Date | string
+  isActive: boolean
+  _offline?: boolean
+  _localId?: string
+  _timestamp?: number
+}
+
+export interface DueAccountSummary {
+  _id: string
+  customerName: string
+  totalDueAmount: number
+  pendingOrdersCount: number
+  lastOrderDate: Date | string
+  orders: IncomeRecord[]
 }

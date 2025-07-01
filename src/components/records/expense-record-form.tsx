@@ -12,7 +12,7 @@ import { showPromiseToast } from "@/lib/toast-utils"
 import { expenseRecordSchema, type ExpenseRecordInput } from "@/lib/validations"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 import type { ExpenseRecord } from "@/types"
-import { useOffline } from "../hooks/use-offline"
+import { useOffline } from "../../hooks/use-offline"
 
 interface ExpenseRecordFormProps {
   record?: ExpenseRecord

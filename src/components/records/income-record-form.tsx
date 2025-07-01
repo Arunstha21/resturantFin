@@ -18,7 +18,7 @@ import type { IncomeRecord } from "@/types"
 import { formatCurrency } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useOffline } from "../hooks/use-offline"
+import { useOffline } from "@/hooks/use-offline"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -58,6 +58,10 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [isSplitPayment, setIsSplitPayment] = useState(false)
 
   const { isOnline } = useOffline()
+
+  // Add state for due accounts
+  const [dueAccounts, setDueAccounts] = useState<any[]>([])
+  const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
 
   const safeRecord: IncomeRecordInput = record
     ? {
@@ -207,6 +211,29 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     }
   }, [watch])
 
+  // Add this useEffect to fetch due accounts
+  useEffect(() => {
+    const fetchDueAccounts = async () => {
+      try {
+        const accounts = await OfflineAPI.getDueAccounts()
+        console.log("Fetched due accounts:", accounts);
+        
+        setDueAccounts(accounts || [])
+      } catch (error) {
+        console.error("Failed to fetch due accounts:", error)
+      }
+    }
+
+    fetchDueAccounts()
+  }, [])
+
+  // Initialize selectedDueAccount in useEffect
+  useEffect(() => {
+    if (record?.dueAccountId) {
+      setSelectedDueAccount(record.dueAccountId)
+    }
+  }, [record])
+
   const addMenuItem = (menuItem: (typeof menuItems)[0]) => {
     const currentItems = watch("items") || []
     // Check if this is the default empty item (first item with empty name)
@@ -338,6 +365,39 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <Label htmlFor="customerName">Customer Name</Label>
             <Input id="customerName" placeholder="John Doe" {...register("customerName")} />
             {errors.customerName && <p className="text-sm text-red-600">{errors.customerName.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dueAccount">Due Account (Optional)</Label>
+            <Select
+              value={selectedDueAccount}
+              onValueChange={(value) => {
+                setSelectedDueAccount(value)
+                if (value) {
+                  setValue("isDueAccount", true)
+                  setValue("dueAccountId", value)
+                  // Find the account and set customer name
+                  const account = dueAccounts.find((acc) => acc._id === value)
+                  if (account) {
+                    setValue("customerName", account.customerName)
+                  }
+                } else {
+                  setValue("isDueAccount", false)
+                  setValue("dueAccountId", "")
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select customer account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No due account</SelectItem>
+                {dueAccounts.map((account) => (
+                  <SelectItem key={account._id} value={account._id}>
+                    {account.customerName} ({formatCurrency(account.totalDueAmount)} due)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

@@ -52,7 +52,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useOffline } from "@/components/hooks/use-offline"
+import { useOffline } from "@/hooks/use-offline"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 
 export default function RecordsPage() {
@@ -79,8 +79,8 @@ export default function RecordsPage() {
     try {
       console.log("Fetching records...")
       const [incomeData, expenseData] = await Promise.all([
-        OfflineAPI.getRecords("income"),
-        OfflineAPI.getRecords("expense"),
+        OfflineAPI.getIncomeRecords(),
+        OfflineAPI.getExpenseRecords(),
       ])
 
       console.log("Income records:", incomeData.length)

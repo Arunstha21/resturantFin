@@ -21,6 +21,8 @@ export interface IIncomeRecord extends Document {
   date: Date
   notes?: string
   createdBy: mongoose.Types.ObjectId
+  isDueAccount?: boolean
+  dueAccountId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -113,6 +115,11 @@ const IncomeRecordSchema = new Schema<IIncomeRecord>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    isDueAccount: { type: Boolean, default: false },
+    dueAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DueAccount",
     },
   },
   {

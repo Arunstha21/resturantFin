@@ -82,7 +82,7 @@ export class SyncManager {
   }
 
   async queueOperation(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     operation: "create" | "update" | "delete",
     data: any,
     originalId?: string,
@@ -119,7 +119,7 @@ export class SyncManager {
   }
 
   private async consolidatePendingOperations(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     recordId: string,
     newOperation: "create" | "update" | "delete",
     newData: any,
@@ -182,7 +182,7 @@ export class SyncManager {
   }
 
   private async updateLocalRecord(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     operation: "create" | "update" | "delete",
     data: any,
     queueId: string,
@@ -194,8 +194,7 @@ export class SyncManager {
       try {
         await offlineDB.deleteRecord(storeName, data._id)
       } catch (error) {
-        console.log("Error deleting operation", error);
-        
+        console.warn(`Failed to delete ${type} record locally:`, error)
         // Record might not exist locally, which is fine
       }
       return
@@ -225,15 +224,14 @@ export class SyncManager {
         record.data = { ...existingRecord.data, ...data, _offline: true }
       }
     } catch (error) {
-        console.log("Error checking record", error);
-        
+        console.warn(`Failed to get existing ${type} record locally:`, error)
       // Record doesn't exist, will create new one
     }
 
     await offlineDB.addRecord(storeName, record)
   }
 
-  async getLocalRecords(type: "income" | "expense" | "user"): Promise<any[]> {
+  async getLocalRecords(type: "income" | "expense" | "user" | "dueAccount"): Promise<any[]> {
     try {
       const storeName = this.getStoreName(type)
       const records = await offlineDB.getRecords(storeName)
@@ -270,7 +268,7 @@ export class SyncManager {
     }
   }
 
-  async cacheServerData(type: "income" | "expense" | "user", data: any[]): Promise<void> {
+  async cacheServerData(type: "income" | "expense" | "user" | "dueAccount", data: any[]): Promise<void> {
     try {
       const storeName = this.getStoreName(type)
 
@@ -423,12 +421,6 @@ export class SyncManager {
   private async syncSingleOperation(operation: QueuedOperation) {
     const { type, operation: op, data } = operation
 
-    // Import server actions dynamically to avoid issues
-    const { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } = await import("@/app/actions/income-records")
-    const { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } = await import(
-      "@/app/actions/expense-records"
-    )
-
     // Clean the data before sending (remove offline-specific fields)
     const cleanData = { ...data }
     delete cleanData._offline
@@ -444,137 +436,19 @@ export class SyncManager {
       // Execute the appropriate server action based on type and operation
       switch (type) {
         case "income":
-          switch (op) {
-            case "create":
-              // For creates, don't send the temporary _id
-              if (isTemporaryId) {
-                delete cleanData._id
-              }
-              console.log(`Creating income record via server action:`, cleanData)
-              result = await createIncomeRecord(cleanData)
-              break
-
-            case "update":
-              // For updates with temporary IDs, treat as create
-              if (isTemporaryId) {
-                delete cleanData._id
-                console.log(`Creating income record (was temp update) via server action:`, cleanData)
-                result = await createIncomeRecord(cleanData)
-              } else {
-                console.log(`Updating income record via server action:`, cleanData._id, cleanData)
-                result = await updateIncomeRecord(cleanData._id, cleanData)
-              }
-              break
-
-            case "delete":
-              // Don't try to delete temporary records
-              if (isTemporaryId) {
-                console.log(`Skipping delete of temporary income record: ${cleanData._id}`)
-                return
-              }
-              console.log(`Deleting income record via server action:`, cleanData._id)
-              result = await deleteIncomeRecord(cleanData._id)
-              break
-
-            default:
-              throw new Error(`Unknown operation: ${op}`)
-          }
+          result = await this.syncIncomeOperation(op, cleanData, isTemporaryId)
           break
 
         case "expense":
-          switch (op) {
-            case "create":
-              if (isTemporaryId) {
-                delete cleanData._id
-              }
-              console.log(`Creating expense record via server action:`, cleanData)
-              result = await createExpenseRecord(cleanData)
-              break
+          result = await this.syncExpenseOperation(op, cleanData, isTemporaryId)
+          break
 
-            case "update":
-              if (isTemporaryId) {
-                delete cleanData._id
-                console.log(`Creating expense record (was temp update) via server action:`, cleanData)
-                result = await createExpenseRecord(cleanData)
-              } else {
-                console.log(`Updating expense record via server action:`, cleanData._id, cleanData)
-                result = await updateExpenseRecord(cleanData._id, cleanData)
-              }
-              break
-
-            case "delete":
-              if (isTemporaryId) {
-                console.log(`Skipping delete of temporary expense record: ${cleanData._id}`)
-                return
-              }
-              console.log(`Deleting expense record via server action:`, cleanData._id)
-              result = await deleteExpenseRecord(cleanData._id)
-              break
-
-            default:
-              throw new Error(`Unknown operation: ${op}`)
-          }
+        case "dueAccount":
+          result = await this.syncDueAccountOperation(op, cleanData, isTemporaryId)
           break
 
         case "user":
-          // For users, we'll still use fetch since we don't have server actions for them yet
-          let endpoint = "/api/users"
-          let method = ""
-          let body = ""
-
-          switch (op) {
-            case "create":
-              method = "POST"
-              if (isTemporaryId) {
-                delete cleanData._id
-              }
-              body = JSON.stringify(cleanData)
-              break
-
-            case "update":
-              if (isTemporaryId) {
-                method = "POST"
-                delete cleanData._id
-                body = JSON.stringify(cleanData)
-              } else {
-                method = "PUT"
-                endpoint = `${endpoint}/${cleanData._id}`
-                body = JSON.stringify(cleanData)
-              }
-              break
-
-            case "delete":
-              if (isTemporaryId) {
-                console.log(`Skipping delete of temporary user record: ${cleanData._id}`)
-                return
-              }
-              method = "DELETE"
-              endpoint = `${endpoint}/${cleanData._id}`
-              break
-
-            default:
-              throw new Error(`Unknown operation: ${op}`)
-          }
-
-          const requestOptions: RequestInit = {
-            method,
-            headers: { "Content-Type": "application/json" },
-          }
-
-          if (body) {
-            requestOptions.body = body
-          }
-
-          console.log(`Syncing ${op} ${type} via API:`, { endpoint, method, data: cleanData, isTemporaryId })
-
-          const response = await fetch(endpoint, requestOptions)
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            throw new Error(`HTTP ${response.status}: ${errorText}`)
-          }
-
-          result = await response.json()
+          result = await this.syncUserOperation(op, cleanData, isTemporaryId)
           break
 
         default:
@@ -596,8 +470,190 @@ export class SyncManager {
     }
   }
 
+  private async syncIncomeOperation(operation: "create" | "update" | "delete", cleanData: any, isTemporaryId: boolean) {
+    // Import server actions dynamically to avoid issues
+    const { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } = await import("@/app/actions/income-records")
+
+    switch (operation) {
+      case "create":
+        // For creates, don't send the temporary _id
+        if (isTemporaryId) {
+          delete cleanData._id
+        }
+        console.log(`Creating income record via server action:`, cleanData)
+        return await createIncomeRecord(cleanData)
+
+      case "update":
+        // For updates with temporary IDs, treat as create
+        if (isTemporaryId) {
+          delete cleanData._id
+          console.log(`Creating income record (was temp update) via server action:`, cleanData)
+          return await createIncomeRecord(cleanData)
+        } else {
+          console.log(`Updating income record via server action:`, cleanData._id, cleanData)
+          return await updateIncomeRecord(cleanData._id, cleanData)
+        }
+
+      case "delete":
+        // Don't try to delete temporary records
+        if (isTemporaryId) {
+          console.log(`Skipping delete of temporary income record: ${cleanData._id}`)
+          return { success: true }
+        }
+        console.log(`Deleting income record via server action:`, cleanData._id)
+        return await deleteIncomeRecord(cleanData._id)
+
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
+    }
+  }
+
+  private async syncExpenseOperation(
+    operation: "create" | "update" | "delete",
+    cleanData: any,
+    isTemporaryId: boolean,
+  ) {
+    // Import server actions dynamically to avoid issues
+    const { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } = await import(
+      "@/app/actions/expense-records"
+    )
+
+    switch (operation) {
+      case "create":
+        if (isTemporaryId) {
+          delete cleanData._id
+        }
+        console.log(`Creating expense record via server action:`, cleanData)
+        return await createExpenseRecord(cleanData)
+
+      case "update":
+        if (isTemporaryId) {
+          delete cleanData._id
+          console.log(`Creating expense record (was temp update) via server action:`, cleanData)
+          return await createExpenseRecord(cleanData)
+        } else {
+          console.log(`Updating expense record via server action:`, cleanData._id, cleanData)
+          return await updateExpenseRecord(cleanData._id, cleanData)
+        }
+
+      case "delete":
+        if (isTemporaryId) {
+          console.log(`Skipping delete of temporary expense record: ${cleanData._id}`)
+          return { success: true }
+        }
+        console.log(`Deleting expense record via server action:`, cleanData._id)
+        return await deleteExpenseRecord(cleanData._id)
+
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
+    }
+  }
+
+  private async syncDueAccountOperation(
+    operation: "create" | "update" | "delete",
+    cleanData: any,
+    isTemporaryId: boolean,
+  ) {
+    // Import server actions dynamically to avoid issues
+    const { createDueAccount, updateDueAccount, deleteDueAccount } = await import("@/app/actions/due-accounts")
+
+    switch (operation) {
+      case "create":
+        // For creates, don't send the temporary _id
+        if (isTemporaryId) {
+          delete cleanData._id
+        }
+        console.log(`Creating due account via server action:`, cleanData)
+        return await createDueAccount(cleanData)
+
+      case "update":
+        // For updates with temporary IDs, treat as create
+        if (isTemporaryId) {
+          delete cleanData._id
+          console.log(`Creating due account (was temp update) via server action:`, cleanData)
+          return await createDueAccount(cleanData)
+        } else {
+          console.log(`Updating due account via server action:`, cleanData._id, cleanData)
+          return await updateDueAccount(cleanData._id, cleanData)
+        }
+
+      case "delete":
+        // Don't try to delete temporary records
+        if (isTemporaryId) {
+          console.log(`Skipping delete of temporary due account: ${cleanData._id}`)
+          return { success: true }
+        }
+        console.log(`Deleting due account via server action:`, cleanData._id)
+        return await deleteDueAccount(cleanData._id)
+
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
+    }
+  }
+
+  private async syncUserOperation(operation: "create" | "update" | "delete", cleanData: any, isTemporaryId: boolean) {
+    // For users, we'll still use fetch since we don't have server actions for them yet
+    let endpoint = "/api/users"
+    let method = ""
+    let body = ""
+
+    switch (operation) {
+      case "create":
+        method = "POST"
+        if (isTemporaryId) {
+          delete cleanData._id
+        }
+        body = JSON.stringify(cleanData)
+        break
+
+      case "update":
+        if (isTemporaryId) {
+          method = "POST"
+          delete cleanData._id
+          body = JSON.stringify(cleanData)
+        } else {
+          method = "PUT"
+          endpoint = `${endpoint}/${cleanData._id}`
+          body = JSON.stringify(cleanData)
+        }
+        break
+
+      case "delete":
+        if (isTemporaryId) {
+          console.log(`Skipping delete of temporary user record: ${cleanData._id}`)
+          return { success: true }
+        }
+        method = "DELETE"
+        endpoint = `${endpoint}/${cleanData._id}`
+        break
+
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
+    }
+
+    const requestOptions: RequestInit = {
+      method,
+      headers: { "Content-Type": "application/json" },
+    }
+
+    if (body) {
+      requestOptions.body = body
+    }
+
+    console.log(`Syncing ${operation} user via API:`, { endpoint, method, data: cleanData, isTemporaryId })
+
+    const response = await fetch(endpoint, requestOptions)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+
+    return await response.json()
+  }
+
   private async updateLocalRecordAfterSync(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     operation: "create" | "update" | "delete",
     originalData: any,
     result: any,
@@ -611,7 +667,7 @@ export class SyncManager {
     }
 
     // Get the server record from the result
-    const serverRecord = result.record || result.user || result
+    const serverRecord = result.record || result.user || result.account || result
 
     // Update local record with server data and mark as synced
     const record: OfflineRecord = {
@@ -631,14 +687,13 @@ export class SyncManager {
       try {
         await offlineDB.deleteRecord(storeName, originalData._id)
       } catch (error) {
-        console.log("Error removeing the temporary record", error);
-        
+        console.warn(`Failed to delete temporary ${type} record locally:`, error)
         // Ignore if record doesn't exist
       }
     }
   }
 
-  private getStoreName(type: "income" | "expense" | "user"): string {
+  private getStoreName(type: "income" | "expense" | "user" | "dueAccount"): string {
     switch (type) {
       case "income":
         return "incomeRecords"
@@ -646,6 +701,8 @@ export class SyncManager {
         return "expenseRecords"
       case "user":
         return "users"
+      case "dueAccount":
+        return "dueAccounts"
       default:
         throw new Error(`Unknown type: ${type}`)
     }
@@ -670,6 +727,7 @@ export class SyncManager {
       await offlineDB.clearStore("incomeRecords")
       await offlineDB.clearStore("expenseRecords")
       await offlineDB.clearStore("users")
+      await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("queuedOperations")
       await offlineDB.clearStore("apiCache")
       console.log("Local data cleared")
