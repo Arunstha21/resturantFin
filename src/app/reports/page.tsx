@@ -724,7 +724,7 @@ export default function ReportsPage() {
                                   </div>
                                 )}
                                 {(record.discount || 0) > 0 && (
-                                  <div className="text-xs text-green-600">
+                                  <div className="text-xs text-red-600">
                                     Discount: -{formatCurrency(record.discount || 0)}
                                   </div>
                                 )}

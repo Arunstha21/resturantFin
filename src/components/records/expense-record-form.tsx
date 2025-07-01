@@ -24,10 +24,7 @@ const expenseCategories = [
   "Staff Salaries",
   "Rent & Utilities",
   "Equipment & Maintenance",
-  "Marketing & Advertising",
   "Supplies & Materials",
-  "Insurance",
-  "Professional Services",
   "Transportation",
   "Other",
 ]
