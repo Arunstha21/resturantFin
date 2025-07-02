@@ -12,9 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { DueAccountForm } from "./due-account-form"
 import { Plus, Edit } from "lucide-react"
 import type { DueAccount } from "@/types"
+import { DueAccountForm } from "./due-account-form"
 
 interface DueAccountDialogProps {
   account?: DueAccount

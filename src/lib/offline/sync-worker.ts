@@ -699,6 +699,8 @@ export class SyncManager {
         return "incomeRecords"
       case "expense":
         return "expenseRecords"
+      case "dueAccount":
+        return "dueAccounts"
       case "user":
         return "users"
       case "dueAccount":

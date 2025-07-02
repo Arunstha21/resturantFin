@@ -3,6 +3,12 @@ import { syncManager } from "./sync-manager"
 import type { IncomeRecord, ExpenseRecord, User, DueAccount } from "@/types"
 import { offlineDB } from "./indexeddb"
 
+// Import server actions
+import { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } from "@/app/actions/income-records"
+import { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } from "@/app/actions/expense-records"
+import { createDueAccount, deleteDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
+
+// Enhanced offline-aware API wrapper that uses server actions
 export class OfflineAPI {
   // Income Records
   static async getIncomeRecords(): Promise<IncomeRecord[]> {
@@ -169,74 +175,83 @@ export class OfflineAPI {
   }
 
   // Due Accounts
-  static async getDueAccounts(): Promise<DueAccount[]> {
+  static async getDueAccounts(): Promise<any[]> {
     try {
-      // Try to get from server first if online
-      if (syncManager.getOnlineStatus()) {
+      // Try to get fresh data from server if online
+      if (navigator.onLine) {
         try {
           const response = await fetch("/api/due-accounts")
           if (response.ok) {
-            const data = await response.json()
+            const serverData = await response.json()
             // Cache the server data
-            await syncManager.cacheServerData("dueAccount", data.accounts || [])
-            return data.accounts || []
+            await syncManager.cacheServerData("dueAccount", serverData.accounts || [])
+            return serverData.accounts || []
           }
         } catch (error) {
-          console.log("Server fetch failed, using local data:", error)
+          console.warn("Failed to fetch from server, using local data:", error)
         }
       }
 
       // Fallback to local data
-      return await syncManager.getLocalRecords("dueAccount")
+      const localRecords = await syncManager.getLocalRecords("dueAccount")
+      return localRecords
     } catch (error) {
       console.error("Failed to get due accounts:", error)
       return []
     }
   }
 
-  static async createDueAccount(data: Partial<DueAccount>): Promise<{ success: boolean; account?: DueAccount }> {
+  static async createDueAccount(data: any): Promise<{ success: boolean; record?: any }> {
     try {
+      // Generate a temporary ID for offline use
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const accountData = {
+      const recordData = {
         ...data,
         _id: tempId,
-        totalDueAmount: 0,
-        totalOrders: 0,
-        pendingOrders: 0,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }
 
-      await syncManager.queueOperation("dueAccount", "create", accountData)
-
-      return {
-        success: true,
-        account: accountData as DueAccount,
+      if (navigator.onLine) {
+        const result = await createDueAccount(recordData)
+        if (result.record) {
+          await syncManager.cacheServerData("dueAccount", [result.record])
+          return { success: true, record: result.record }
+        }
+        return { success: false }
       }
+
+      // Queue for offline sync and update local cache immediately
+      await syncManager.queueOperation("dueAccount", "create", recordData)
+      await this.updateLocalDueAccountCache("create", recordData)
+      return { success: true, record: recordData }
     } catch (error) {
       console.error("Failed to create due account:", error)
       return { success: false }
     }
   }
 
-  static async updateDueAccount(
-    id: string,
-    data: Partial<DueAccount>,
-  ): Promise<{ success: boolean; account?: DueAccount }> {
+  static async updateDueAccount(id: string, data: any): Promise<{ success: boolean; record?: any }> {
     try {
-      const accountData = {
+      const recordData = {
         ...data,
         _id: id,
-        updatedAt: new Date(),
+        updatedAt: new Date().toISOString(),
       }
 
-      await syncManager.queueOperation("dueAccount", "update", accountData, id)
-
-      return {
-        success: true,
-        account: accountData as DueAccount,
+      if (navigator.onLine) {
+        const result = await updateDueAccount(id, recordData)
+        if (result.record) {
+          await syncManager.cacheServerData("dueAccount", [result.record])
+          return { success: true, record: result.record }
+        }
+        return { success: false }
       }
+
+      // Queue for offline sync and update local cache immediately
+      await syncManager.queueOperation("dueAccount", "update", recordData, id)
+      await this.updateLocalDueAccountCache("update", recordData)
+      return { success: true, record: recordData }
     } catch (error) {
       console.error("Failed to update due account:", error)
       return { success: false }
@@ -245,7 +260,14 @@ export class OfflineAPI {
 
   static async deleteDueAccount(id: string): Promise<{ success: boolean }> {
     try {
+      if (navigator.onLine) {
+        await deleteDueAccount(id)
+        return { success: true }
+      }
+
+      // Queue for offline sync and update local cache immediately
       await syncManager.queueOperation("dueAccount", "delete", { _id: id }, id)
+      await this.updateLocalDueAccountCache("delete", { _id: id })
       return { success: true }
     } catch (error) {
       console.error("Failed to delete due account:", error)
@@ -253,85 +275,32 @@ export class OfflineAPI {
     }
   }
 
-  // Users
-  static async getUsers(): Promise<User[]> {
+  // Helper method to update local due account cache
+  private static async updateLocalDueAccountCache(operation: "create" | "update" | "delete", record: any) {
     try {
-      // Try to get from server first if online
-      if (syncManager.getOnlineStatus()) {
-        try {
-          const response = await fetch("/api/users")
-          if (response.ok) {
-            const data = await response.json()
-            // Cache the server data
-            await syncManager.cacheServerData("user", data.users || [])
-            return data.users || []
-          }
-        } catch (error) {
-          console.log("Server fetch failed, using local data:", error)
+      const storeName = "dueAccounts"
+
+      if (operation === "delete") {
+        await offlineDB.deleteRecord(storeName, record._id)
+      } else {
+        const offlineRecord = {
+          id: record._id,
+          type: "dueAccount" as const,
+          data: record,
+          timestamp: Date.now(),
+          synced: navigator.onLine, // Mark as synced if we're online
+          operation,
         }
+        await offlineDB.addRecord(storeName, offlineRecord)
       }
 
-      // Fallback to local data
-      return await syncManager.getLocalRecords("user")
+      console.log(`Local due account cache updated: ${operation} for record ${record._id}`)
     } catch (error) {
-      console.error("Failed to get users:", error)
-      return []
+      console.error("Failed to update local due account cache:", error)
     }
   }
 
-  static async createUser(data: Partial<User>): Promise<{ success: boolean; user?: User }> {
-    try {
-      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const userData = {
-        ...data,
-        _id: tempId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      await syncManager.queueOperation("user", "create", userData)
-
-      return {
-        success: true,
-        user: userData as User,
-      }
-    } catch (error) {
-      console.error("Failed to create user:", error)
-      return { success: false }
-    }
-  }
-
-  static async updateUser(id: string, data: Partial<User>): Promise<{ success: boolean; user?: User }> {
-    try {
-      const userData = {
-        ...data,
-        _id: id,
-        updatedAt: new Date(),
-      }
-
-      await syncManager.queueOperation("user", "update", userData, id)
-
-      return {
-        success: true,
-        user: userData as User,
-      }
-    } catch (error) {
-      console.error("Failed to update user:", error)
-      return { success: false }
-    }
-  }
-
-  static async deleteUser(id: string): Promise<{ success: boolean }> {
-    try {
-      await syncManager.queueOperation("user", "delete", { _id: id }, id)
-      return { success: true }
-    } catch (error) {
-      console.error("Failed to delete user:", error)
-      return { success: false }
-    }
-  }
-
-  // Dashboard data
+  // Dashboard data using server action
   static async getDashboardStats(dateFilter = "month"): Promise<any> {
     try {
       // Check cache first

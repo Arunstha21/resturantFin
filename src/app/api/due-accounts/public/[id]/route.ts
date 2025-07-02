@@ -3,17 +3,21 @@ import dbConnect from "@/lib/db"
 import DueAccount from "@/models/DueAccount"
 import IncomeRecord from "@/models/IncomeRecord"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params
     await dbConnect()
 
-    const account = await DueAccount.findById(params.id)
+    const account = await DueAccount.findById(id)
     if (!account || !account.isActive) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
     }
 
     const pendingOrders = await IncomeRecord.find({
-      dueAccountId: params.id,
+      dueAccountId: id,
       paymentStatus: "pending",
     })
       .sort({ date: -1 })

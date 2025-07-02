@@ -27,7 +27,12 @@ export const incomeRecordSchema = z.object({
   customerName: z.string().optional(),
   notes: z.string().optional(),
   isDueAccount: z.boolean().optional(),
-  dueAccountId: z.string().optional(),
+  dueAccountId: z
+    .string()
+    .optional()
+    .transform((val) => {
+      return val && val.trim() !== "" ? val : undefined
+    }),
 });
 
 export const expenseRecordSchema = z.object({
@@ -58,7 +63,6 @@ export const filterSchema = z.object({
   startDate: z.date().optional(),
   endDate: z.date().optional(),
 })
-
 export const dueAccountSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerPhone: z.string().optional(),

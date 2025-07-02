@@ -421,6 +421,15 @@ export class SyncManager {
   private async syncSingleOperation(operation: QueuedOperation) {
     const { type, operation: op, data } = operation
 
+    // Import server actions dynamically to avoid issues
+    const { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } = await import("@/app/actions/income-records")
+    const { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } = await import(
+      "@/app/actions/expense-records"
+    )
+    const { createDueAccount, updateDueAccount, deleteDueAccount } = await import(
+      "@/app/actions/due-accounts"
+    )
+
     // Clean the data before sending (remove offline-specific fields)
     const cleanData = { ...data }
     delete cleanData._offline
@@ -445,6 +454,41 @@ export class SyncManager {
 
         case "dueAccount":
           result = await this.syncDueAccountOperation(op, cleanData, isTemporaryId)
+          break
+
+        case "dueAccount":
+          switch (op) {
+            case "create":
+              if (isTemporaryId) {
+                delete cleanData._id
+              }
+              console.log(`Creating due account via server action:`, cleanData)
+              result = await createDueAccount(cleanData)
+              break
+
+            case "update":
+              if (isTemporaryId) {
+                delete cleanData._id
+                console.log(`Creating due account (was temp update) via server action:`, cleanData)
+                result = await createDueAccount(cleanData)
+              } else {
+                console.log(`Updating due account via server action:`, cleanData._id, cleanData)
+                result = await updateDueAccount(cleanData._id, cleanData)
+              }
+              break
+
+            case "delete":
+              if (isTemporaryId) {
+                console.log(`Skipping delete of temporary due account record: ${cleanData._id}`)
+                return
+              }
+              console.log(`Deleting due account via server action:`, cleanData._id)
+              result = await deleteDueAccount(cleanData._id)
+              break
+
+            default:
+              throw new Error(`Unknown operation: ${op}`)
+          }
           break
 
         case "user":
@@ -729,6 +773,7 @@ export class SyncManager {
       await offlineDB.clearStore("users")
       await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("queuedOperations")
+      await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("apiCache")
       console.log("Local data cleared")
       toast.success("Local data cleared")
