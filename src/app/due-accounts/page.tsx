@@ -65,6 +65,7 @@ export default function DueAccountsPage() {
       const processedAccounts = accounts.map((account: any) => ({
         ...account,
         _id: account._id || account.id || "",
+        customerPhone: account.customerPhone || "",
         customerName: account.customerName || "",
         totalDueAmount: account.totalDueAmount || 0,
         pendingOrdersCount: account.pendingOrdersCount || 0,
@@ -305,6 +306,9 @@ export default function DueAccountsPage() {
                         <div className="flex items-center gap-4">
                           <div>
                             <CardTitle className="text-lg">{account.customerName}</CardTitle>
+                            <div className="text-sm text-muted-foreground">
+                              {account.customerPhone && <span>Phone: {account.customerPhone}</span>}
+                            </div>
                             <div className="flex items-center gap-4 mt-1">
                               <span className="text-sm text-muted-foreground">
                                 {account.orders && account.orders.length > 0
