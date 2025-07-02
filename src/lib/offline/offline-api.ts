@@ -4,8 +4,6 @@ import type { IncomeRecord, ExpenseRecord, User, DueAccount } from "@/types"
 import { offlineDB } from "./indexeddb"
 
 // Import server actions
-import { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } from "@/app/actions/income-records"
-import { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } from "@/app/actions/expense-records"
 import { createDueAccount, deleteDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
 
 // Enhanced offline-aware API wrapper that uses server actions

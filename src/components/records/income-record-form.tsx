@@ -263,29 +263,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     }
   }, [record, setValue])
 
-  // Add this useEffect to fetch due accounts
-  useEffect(() => {
-    const fetchDueAccounts = async () => {
-      try {
-        const accounts = await OfflineAPI.getDueAccounts()
-        console.log("Fetched due accounts:", accounts);
-        
-        setDueAccounts(accounts || [])
-      } catch (error) {
-        console.error("Failed to fetch due accounts:", error)
-      }
-    }
-
-    fetchDueAccounts()
-  }, [])
-
-  // Initialize selectedDueAccount in useEffect
-  useEffect(() => {
-    if (record?.dueAccountId) {
-      setSelectedDueAccount(record.dueAccountId)
-    }
-  }, [record])
-
   const addMenuItem = (menuItem: (typeof menuItems)[0]) => {
     const currentItems = watch("items") || []
     // Check if this is the default empty item (first item with empty name)

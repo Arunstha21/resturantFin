@@ -97,6 +97,7 @@ export interface DueAccount {
 export interface DueAccountSummary {
   _id: string
   customerName: string
+  customerPhone?: string
   totalDueAmount: number
   pendingOrdersCount: number
   lastOrderDate: Date | string

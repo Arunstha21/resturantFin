@@ -491,6 +491,41 @@ export class SyncManager {
           }
           break
 
+        case "dueAccount":
+          switch (op) {
+            case "create":
+              if (isTemporaryId) {
+                delete cleanData._id
+              }
+              console.log(`Creating due account via server action:`, cleanData)
+              result = await createDueAccount(cleanData)
+              break
+
+            case "update":
+              if (isTemporaryId) {
+                delete cleanData._id
+                console.log(`Creating due account (was temp update) via server action:`, cleanData)
+                result = await createDueAccount(cleanData)
+              } else {
+                console.log(`Updating due account via server action:`, cleanData._id, cleanData)
+                result = await updateDueAccount(cleanData._id, cleanData)
+              }
+              break
+
+            case "delete":
+              if (isTemporaryId) {
+                console.log(`Skipping delete of temporary due account record: ${cleanData._id}`)
+                return
+              }
+              console.log(`Deleting due account via server action:`, cleanData._id)
+              result = await deleteDueAccount(cleanData._id)
+              break
+
+            default:
+              throw new Error(`Unknown operation: ${op}`)
+          }
+          break
+
         case "user":
           result = await this.syncUserOperation(op, cleanData, isTemporaryId)
           break
