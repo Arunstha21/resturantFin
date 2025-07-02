@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Navbar } from "@/components/layout/navbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,61 +9,138 @@ import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { formatCurrency } from "@/lib/utils"
 import { OfflineAPI } from "@/lib/offline/offline-api"
-import { Users, ChevronDown, ChevronUp, Search, Calendar, Receipt, ExternalLink, RefreshCw, WifiOff } from 'lucide-react'
-import type { DueAccountSummary } from "@/types"
+import {
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Calendar,
+  Receipt,
+  ExternalLink,
+  RefreshCw,
+  WifiOff,
+  Edit,
+  Trash2,
+} from "lucide-react"
+import type { DueAccount, DueAccountSummary } from "@/types"
 import { toast } from "sonner"
 import { useOffline } from "@/hooks/use-offline"
 import { DueAccountDialog } from "@/components/due-accounts/due-account-dialog"
+import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTrigger,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog"
 
 export default function DueAccountsPage() {
-  const [dueAccounts, setDueAccounts] = useState<DueAccountSummary[]>([])
-  const [isLoading, setIsLoading] = useState(false) // Changed from true to false
+  const [dueAccounts, setDueAccounts] = useState<DueAccount[]>([])
+  const [dueAccountSummary, setDueAccountSummary] = useState<DueAccountSummary[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
   const [mounted, setMounted] = useState(false)
 
   const { isOnline, isSyncing, pendingOperations } = useOffline()
 
-  // Fix hydration issue
   useEffect(() => {
     setMounted(true)
-    // Start loading after mount to prevent hydration mismatch
-    setIsLoading(true)
     fetchDueAccounts()
   }, [])
 
-  const fetchDueAccounts = async () => {
+  const fetchDueAccounts = useCallback(async () => {
+    setIsLoading(true)
     try {
       console.log("Fetching due accounts...")
       const data = await OfflineAPI.getDueAccounts()
-      console.log("Due accounts:", data)
+      console.log("Due accounts fetched:", data)
 
-      // Ensure data is an array and has proper structure
       const accounts = Array.isArray(data) ? data : []
-      setDueAccounts(
-        accounts.map((account: any) => ({
-          ...account,
-          _id: account._id || account.id || "",
-          customerName: account.customerName || "",
-          totalDueAmount: account.totalDueAmount || 0,
-          pendingOrdersCount: account.pendingOrdersCount || 0,
-          orders: Array.isArray(account.orders) ? account.orders : [],
-          lastOrderDate: account.lastOrderDate || new Date().toISOString(),
-          isActive: account.isActive !== false,
-        })),
-      )
+      const processedAccounts = accounts.map((account: any) => ({
+        ...account,
+        _id: account._id || account.id || "",
+        customerName: account.customerName || "",
+        totalDueAmount: account.totalDueAmount || 0,
+        pendingOrdersCount: account.pendingOrdersCount || 0,
+        orders: Array.isArray(account.orders) ? account.orders : [],
+        lastOrderDate: account.lastOrderDate || new Date().toISOString(),
+        isActive: account.isActive !== false,
+      }))
+      setDueAccounts(accounts)
+      setDueAccountSummary(processedAccounts)
+      console.log("Due accounts state updated:", processedAccounts)
     } catch (error) {
       toast.error("Failed to fetch due accounts")
       console.error("Error fetching due accounts:", error)
-      setDueAccounts([]) // Set empty array on error
+      setDueAccounts([])
+      setDueAccountSummary([])
     } finally {
       setIsLoading(false)
     }
+  }, [])
+
+  const handleAccountSuccess = useCallback(async () => {
+    console.log("Account operation completed, refreshing data...")
+    // Add a small delay to ensure the operation is completed
+    setTimeout(async () => {
+      await fetchDueAccounts()
+    }, 100)
+  }, [fetchDueAccounts])
+
+  const handleDeleteAccount = async (accountId: string, accountName: string) => {
+    try {
+      console.log("Deleting account:", accountId)
+      await OfflineAPI.deleteDueAccount(accountId)
+
+      const successMessage = isOnline
+        ? `Customer account "${accountName}" deleted successfully!`
+        : `Customer account "${accountName}" deleted offline - will sync when online`
+      toast.success(successMessage)
+
+      // Immediately update the local state to remove the deleted account
+      setDueAccountSummary((prev) => prev.filter((account) => account._id !== accountId))
+
+      // Also refresh from API to ensure consistency
+      setTimeout(async () => {
+        await fetchDueAccounts()
+      }, 100)
+    } catch (error) {
+      console.error("Error deleting due account:", error)
+      toast.error("Failed to delete customer account")
+    }
   }
 
-  const handleAccountSuccess = () => {
-    fetchDueAccounts()
+  const handleDeleteOrder = async (orderId: string) => {
+    try {
+      console.log("Deleting order:", orderId)
+      await OfflineAPI.deleteIncomeRecord(orderId)
+
+      const successMessage = isOnline ? "Order deleted successfully!" : "Order deleted offline - will sync when online"
+      toast.success(successMessage)
+
+      // Refresh the due accounts to reflect the changes
+      setTimeout(async () => {
+        await fetchDueAccounts()
+      }, 100)
+    } catch (error) {
+      console.error("Error deleting order:", error)
+      toast.error("Failed to delete order")
+    }
   }
+
+  const handleOrderSuccess = useCallback(async () => {
+    console.log("Order operation completed, refreshing data...")
+    // Add a small delay to ensure the operation is completed
+    setTimeout(async () => {
+      await fetchDueAccounts()
+    }, 100)
+  }, [fetchDueAccounts])
 
   const toggleAccountExpansion = (accountId: string) => {
     const newExpanded = new Set(expandedAccounts)
@@ -83,6 +160,11 @@ export default function DueAccountsPage() {
     }
   }
 
+  const handleRefresh = useCallback(async () => {
+    console.log("Manual refresh triggered")
+    await fetchDueAccounts()
+  }, [fetchDueAccounts])
+
   // Don't render until mounted to prevent hydration issues
   if (!mounted) {
     return (
@@ -98,8 +180,7 @@ export default function DueAccountsPage() {
     )
   }
 
-  // Ensure dueAccounts is always an array before filtering
-  const safeAccounts = Array.isArray(dueAccounts) ? dueAccounts : []
+  const safeAccounts = Array.isArray(dueAccountSummary) ? dueAccountSummary : []
   const filteredAccounts = safeAccounts.filter(
     (account) => account.customerName && account.customerName.toLowerCase().includes(searchTerm.toLowerCase()),
   )
@@ -135,7 +216,6 @@ export default function DueAccountsPage() {
               )}
             </div>
           </div>
-
           <DueAccountDialog onSuccess={handleAccountSuccess} mode="create" />
         </div>
 
@@ -188,7 +268,7 @@ export default function DueAccountsPage() {
               className="pl-8"
             />
           </div>
-          <Button variant="outline" onClick={fetchDueAccounts} disabled={isLoading}>
+          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -254,7 +334,50 @@ export default function DueAccountsPage() {
                               {(account.totalDueAmount || 0) > 0 ? "Total Due" : "No Dues"}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            {/* Edit Account Button */}
+                            <DueAccountDialog
+                              account={dueAccounts.find((a) => a._id === account._id)}
+                              onSuccess={handleAccountSuccess}
+                              mode="edit"
+                              trigger={
+                                <Button variant="outline" size="sm">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
+
+                            {/* Delete Account Button - Only show if no pending orders */}
+                            {(account.pendingOrdersCount || 0) === 0 && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Customer Account</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete the customer account for &quot;{account.customerName}&quot;?
+                                      This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteAccount(account._id, account.customerName)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete Account
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+
+                            {/* Public Link Button */}
                             <Button
                               variant="outline"
                               size="sm"
@@ -265,6 +388,8 @@ export default function DueAccountsPage() {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
+
+                            {/* Expand/Collapse Icon */}
                             {expandedAccounts.has(account._id) ? (
                               <ChevronUp className="h-5 w-5 text-muted-foreground" />
                             ) : (
@@ -309,16 +434,60 @@ export default function DueAccountsPage() {
                                     {order.notes && ` • ${order.notes}`}
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <div className="font-medium text-red-600">
-                                    {formatCurrency(order.totalAmount || 0)}
+
+                                <div className="flex items-center gap-2">
+                                  <div className="text-right">
+                                    <div className="font-medium text-red-600">
+                                      {formatCurrency(order.totalAmount || 0)}
+                                    </div>
+                                    <Badge
+                                      variant={order.paymentStatus === "completed" ? "default" : "destructive"}
+                                      className="text-xs"
+                                    >
+                                      {order.paymentStatus || "pending"}
+                                    </Badge>
                                   </div>
-                                  <Badge
-                                    variant={order.paymentStatus === "completed" ? "default" : "destructive"}
-                                    className="text-xs"
-                                  >
-                                    {order.paymentStatus || "pending"}
-                                  </Badge>
+
+                                  {/* Order Actions */}
+                                  <div className="flex items-center gap-1">
+                                    {/* Edit Order Button */}
+                                    <IncomeRecordDialog
+                                      record={order}
+                                      onSuccess={handleOrderSuccess}
+                                      mode="edit"
+                                      trigger={
+                                        <Button variant="outline" size="sm">
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                      }
+                                    />
+
+                                    {/* Delete Order Button */}
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="outline" size="sm">
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Are you sure you want to delete this order? This action cannot be undone.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDeleteOrder(order._id)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Delete Order
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
                               </div>
                             ))}

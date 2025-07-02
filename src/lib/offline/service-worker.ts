@@ -1,5 +1,10 @@
 /// <reference lib="webworker" />
 
+// Minimal SyncEvent interface for TypeScript
+interface SyncEvent extends ExtendableEvent {
+  readonly tag: string;
+}
+
 // Service Worker for offline caching
 const CACHE_NAME = "restaurant-fin-v1"
 const STATIC_CACHE = "restaurant-fin-static-v1"
@@ -174,9 +179,10 @@ async function handleStaticRequest(request: Request): Promise<Response> {
 
 // Background sync for queued operations
 sw.addEventListener("sync", (event) => {
-  console.log("Background sync triggered:", (event as any).tag)
-  if ((event as any).tag === "background-sync") {
-    event.waitUntil(syncQueuedOperations())
+  const syncEvent = event as SyncEvent;
+  console.log("Background sync triggered:", (syncEvent as any).tag)
+  if ((syncEvent as any).tag === "background-sync") {
+    syncEvent.waitUntil(syncQueuedOperations())
   }
 })
 

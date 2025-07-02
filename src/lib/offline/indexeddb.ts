@@ -308,7 +308,7 @@ class OfflineDB {
   async getStorageStats(): Promise<{ [key: string]: number }> {
     const stats: { [key: string]: number } = {}
 
-    const stores = ["incomeRecords", "expenseRecords", "users", "dueAccounts", "queuedOperations", "apiCache"]
+    const stores = ["incomeRecords", "expenseRecords", "users", "queuedOperations", "apiCache", "dueAccounts"]
 
     for (const store of stores) {
       try {

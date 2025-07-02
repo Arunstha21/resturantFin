@@ -9,26 +9,39 @@ import type { DueAccountSummary } from "@/types"
 import { Button } from "@/components/ui/button"
 
 interface PublicDueAccountPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function PublicDueAccountPage({ params }: PublicDueAccountPageProps) {
   const [account, setAccount] = useState<DueAccountSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [accountId, setAccountId] = useState<string>("")
 
   useEffect(() => {
-    fetchAccountDetails()
-  }, [params.id])
+    const getParams = async () => {
+      const resolvedParams = await params
+      setAccountId(resolvedParams.id)
+    }
+    getParams()
+  }, [params])
+
+  useEffect(() => {
+    if (accountId) {
+      fetchAccountDetails()
+    }
+  }, [accountId])
 
   const fetchAccountDetails = async () => {
     try {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(`/api/due-accounts/public/${params.id}`)
+      const response = await fetch(`/api/due-accounts/public/${accountId}`)
+      console.log(response);
+      
       const data = await response.json()
 
       if (!response.ok) {

@@ -13,7 +13,13 @@ export async function createIncomeRecord(data: IncomeRecordInput) {
     throw new Error("Unauthorized")
   }
 
-  const validatedData = incomeRecordSchema.parse(data)
+  const cleanedData = {
+    ...data,
+    dueAccountId: data.dueAccountId && data.dueAccountId.trim() !== "" ? data.dueAccountId : undefined,
+    isDueAccount: data.isDueAccount && data.dueAccountId && data.dueAccountId.trim() !== "",
+  }
+
+  const validatedData = incomeRecordSchema.parse(cleanedData)
 
   await dbConnect()
 
@@ -34,7 +40,13 @@ export async function updateIncomeRecord(id: string, data: IncomeRecordInput) {
     throw new Error("Unauthorized")
   }
 
-  const validatedData = incomeRecordSchema.parse(data)
+  const cleanedData = {
+    ...data,
+    dueAccountId: data.dueAccountId && data.dueAccountId.trim() !== "" ? data.dueAccountId : undefined,
+    isDueAccount: data.isDueAccount && data.dueAccountId && data.dueAccountId.trim() !== "",
+  }
+
+  const validatedData = incomeRecordSchema.parse(cleanedData)
 
   await dbConnect()
 

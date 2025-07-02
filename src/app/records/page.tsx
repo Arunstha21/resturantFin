@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency } from "@/lib/utils"
+import { OfflineAPI } from "@/lib/offline/offline-api"
 import {
   Trash2,
   Search,
@@ -37,6 +38,9 @@ import {
   Smartphone,
   WifiOff,
   RefreshCw,
+  ChevronDown,
+  ChevronRightIcon,
+  Users,
 } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { toast } from "sonner"
@@ -53,13 +57,20 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useOffline } from "@/hooks/use-offline"
-import { OfflineAPI } from "@/lib/offline/offline-api"
+
+// Enhanced type for grouped records
+interface GroupedIncomeRecord extends IncomeRecord {
+  isGroup?: boolean
+  groupedOrders?: IncomeRecord[]
+  orderCount?: number
+}
 
 export default function RecordsPage() {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([])
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("income")
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   // Table state
   const [incomeSorting, setIncomeSorting] = useState<SortingState>([])
@@ -75,17 +86,15 @@ export default function RecordsPage() {
     fetchRecords()
   }, [])
 
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
+    setIsLoading(true)
     try {
       console.log("Fetching records...")
       const [incomeData, expenseData] = await Promise.all([
         OfflineAPI.getIncomeRecords(),
         OfflineAPI.getExpenseRecords(),
       ])
-
-      console.log("Income records:", incomeData.length)
-      console.log("Expense records:", expenseData.length)
-
+      
       setIncomeRecords(incomeData || [])
       setExpenseRecords(expenseData || [])
     } catch (error) {
@@ -94,15 +103,138 @@ export default function RecordsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  // Group income records by due account with proper sorting
+  const groupedIncomeRecords = useMemo(() => {
+    const grouped: GroupedIncomeRecord[] = []
+    const dueAccountGroups = new Map<string, IncomeRecord[]>()
+    const regularRecords: IncomeRecord[] = []
+
+    // Separate due account orders from regular orders
+    incomeRecords.forEach((record) => {
+      if (record.isDueAccount && record.dueAccountId) {
+        if (!dueAccountGroups.has(record.dueAccountId)) {
+          dueAccountGroups.set(record.dueAccountId, [])
+        }
+        dueAccountGroups.get(record.dueAccountId)!.push(record)
+      } else {
+        regularRecords.push(record)
+      }
+    })
+
+    // Create group records for due accounts
+    dueAccountGroups.forEach((orders, dueAccountId) => {
+      if (orders.length > 1) {
+        // Sort orders within group: pending first, then by date (newest first)
+        const sortedOrders = orders.sort((a, b) => {
+          // First sort by payment status (pending first)
+          if (a.paymentStatus !== b.paymentStatus) {
+            return a.paymentStatus === "pending" ? -1 : 1
+          }
+          // Then by date (newest first)
+          return new Date(b.date).getTime() - new Date(a.date).getTime()
+        })
+
+        const totalAmount = sortedOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+        const pendingOrders = sortedOrders.filter((order) => order.paymentStatus === "pending")
+
+        const groupRecord: GroupedIncomeRecord = {
+          ...sortedOrders[0], // Use first order as base
+          _id: `group_${dueAccountId}`,
+          isGroup: true,
+          groupedOrders: sortedOrders,
+          orderCount: sortedOrders.length,
+          totalAmount,
+          paymentStatus: pendingOrders.length > 0 ? "pending" : "completed",
+          items: [
+            {
+              name: `${sortedOrders.length} orders`,
+              quantity: sortedOrders.reduce((sum, order) => sum + order.items.length, 0),
+              price: totalAmount,
+            },
+          ],
+        }
+        grouped.push(groupRecord)
+
+        // Add individual orders if group is expanded
+        if (expandedGroups.has(dueAccountId)) {
+          sortedOrders.forEach((order) => {
+            grouped.push({
+              ...order,
+              _id: `child_${order._id}`,
+            })
+          })
+        }
+      } else {
+        // Single order - add directly
+        grouped.push(orders[0])
+      }
+    })
+
+    // Add regular records
+    regularRecords.forEach((record) => {
+      grouped.push(record)
+    })
+
+    // Sort the final grouped array: pending groups first, then by date
+    return grouped.sort((a, b) => {
+      // Skip child records in main sorting
+      if (a._id.startsWith("child_") || b._id.startsWith("child_")) {
+        return 0
+      }
+
+      // First sort by payment status (pending first)
+      if (a.paymentStatus !== b.paymentStatus) {
+        return a.paymentStatus === "pending" ? -1 : 1
+      }
+
+      // Then by date (newest first)
+      const dateA =
+        a.isGroup && a.groupedOrders
+          ? Math.max(...a.groupedOrders.map((o) => new Date(o.date).getTime()))
+          : new Date(a.date).getTime()
+      const dateB =
+        b.isGroup && b.groupedOrders
+          ? Math.max(...b.groupedOrders.map((o) => new Date(o.date).getTime()))
+          : new Date(b.date).getTime()
+      return dateB - dateA
+    })
+  }, [incomeRecords, expandedGroups])
 
   const handleDeleteIncome = async (id: string) => {
     try {
-      await OfflineAPI.deleteIncomeRecord(id)
-      setIncomeRecords(incomeRecords.filter((record) => record._id !== id))
+      // Handle group deletion
+      if (id.startsWith("group_")) {
+        const dueAccountId = id.replace("group_", "")
+        const groupOrders = incomeRecords.filter(
+          (record) => record.isDueAccount && record.dueAccountId === dueAccountId,
+        )
+
+        // Delete all orders in the group
+        await Promise.all(groupOrders.map((order) => OfflineAPI.deleteIncomeRecord(order._id)))
+
+        // Update local state
+        // setIncomeRecords(
+        //   incomeRecords.filter((record) => !(record.isDueAccount && record.dueAccountId === dueAccountId)),
+        // )
+
+        const message = isOnline
+          ? `${groupOrders.length} orders deleted successfully`
+          : `${groupOrders.length} orders deleted offline - will sync when online`
+        toast.success(message)
+        await fetchRecords()
+        return
+      }
+
+      // Handle individual order deletion
+      const actualId = id.startsWith("child_") ? id.replace("child_", "") : id
+      await OfflineAPI.deleteIncomeRecord(actualId)
+      setIncomeRecords(incomeRecords.filter((record) => record._id !== actualId))
 
       const message = isOnline ? "Order deleted successfully" : "Order deleted offline - will sync when online"
       toast.success(message)
+      await fetchRecords()
     } catch (error) {
       toast.error("Failed to delete order")
       console.error("Error deleting order:", error)
@@ -116,18 +248,33 @@ export default function RecordsPage() {
 
       const message = isOnline ? "Expense deleted successfully" : "Expense deleted offline - will sync when online"
       toast.success(message)
+
+      await fetchRecords()
     } catch (error) {
       toast.error("Failed to delete expense")
       console.error("Error deleting expense:", error)
     }
   }
 
-  const handleFormSuccess = () => {
-    fetchRecords()
-  }
+  const handleFormSuccess = useCallback(async () => {
+    // Add a small delay to ensure the data is updated before refetching
+    await fetchRecords()
+  }, [fetchRecords])
+
+  const toggleGroupExpansion = useCallback((dueAccountId: string) => {
+    setExpandedGroups((prev) => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(dueAccountId)) {
+        newExpanded.delete(dueAccountId)
+      } else {
+        newExpanded.add(dueAccountId)
+      }
+      return newExpanded
+    })
+  }, [])
 
   // Income table columns
-  const incomeColumns = useMemo<ColumnDef<IncomeRecord>[]>(
+  const incomeColumns = useMemo<ColumnDef<GroupedIncomeRecord>[]>(
     () => [
       {
         id: "customer",
@@ -145,9 +292,31 @@ export default function RecordsPage() {
         cell: ({ getValue, row }) => {
           const value = getValue() as string
           const record = row.original
+          const isChild = record._id.startsWith("child_")
+
           return (
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{value}</span>
+            <div
+              className={`flex items-center gap-2 ${isChild ? "pl-8" : ""} ${record.isGroup ? "cursor-pointer" : ""}`}
+            >
+              {record.isGroup && (
+                <div className="flex items-center">
+                  {expandedGroups.has(record.dueAccountId!) ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRightIcon className="h-4 w-4" />
+                  )}
+                  <Users className="h-4 w-4 ml-1" />
+                </div>
+              )}
+              <span className={`font-medium`}>
+                {value}
+                {record.isGroup && ` (${record.orderCount} orders)`}
+              </span>
+              {record.isDueAccount && !record.isGroup && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                  Due Account
+                </Badge>
+              )}
               {record._offline && (
                 <Badge variant="outline" className="text-orange-600 border-orange-200">
                   <WifiOff className="h-3 w-3 mr-1" />
@@ -164,6 +333,26 @@ export default function RecordsPage() {
         cell: ({ getValue, row }) => {
           const method = getValue() as string
           const record = row.original
+
+          if (record.isGroup) {
+            const methods = record.groupedOrders?.map((order) => order.paymentMethod) || []
+            const uniqueMethods = Array.from(new Set(methods))
+
+            if (uniqueMethods.length === 1) {
+              return (
+                <div className="flex items-center gap-1">
+                  {uniqueMethods[0] === "cash" ? <Banknote className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                  <span className="text-xs capitalize">{uniqueMethods[0]}</span>
+                </div>
+              )
+            } else {
+              return (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">Mixed</span>
+                </div>
+              )
+            }
+          }
 
           if (method === "split") {
             return (
@@ -200,16 +389,44 @@ export default function RecordsPage() {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const status = getValue() as string
+          const record = row.original
+
+          if (record.isGroup) {
+            const pendingCount = record.groupedOrders?.filter((order) => order.paymentStatus === "pending").length || 0
+            const completedCount =
+              record.groupedOrders?.filter((order) => order.paymentStatus === "completed").length || 0
+
+            if (pendingCount > 0 && completedCount > 0) {
+              return (
+                <div className="flex flex-col gap-1">
+                  <Badge variant="destructive" className="text-xs">
+                    {pendingCount} Pending
+                  </Badge>
+                  <Badge variant="default" className="text-xs">
+                    {completedCount} Completed
+                  </Badge>
+                </div>
+              )
+            }
+          }
+
           return <Badge variant={status === "completed" ? "default" : "destructive"}>{status}</Badge>
         },
       },
       {
         accessorKey: "items",
         header: "Items",
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const items = getValue() as any[]
+          const record = row.original
+
+          if (record.isGroup) {
+            const totalItems = record.groupedOrders?.reduce((sum, order) => sum + order.items.length, 0) || 0
+            return `${totalItems} items (${record.orderCount} orders)`
+          }
+
           return `${items.length} items`
         },
         enableSorting: false,
@@ -226,9 +443,15 @@ export default function RecordsPage() {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const amount = getValue() as number
-          return <div className="text-green-600 font-medium">{formatCurrency(amount)}</div>
+          const record = row.original
+
+          return (
+            <div className={`font-medium ${record.isGroup ? "text-red-800 font-semibold" : "text-green-600"}`}>
+              {formatCurrency(amount)}
+            </div>
+          )
         },
       },
       {
@@ -243,47 +466,76 @@ export default function RecordsPage() {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const date = getValue() as string
+          const record = row.original
+
+          if (record.isGroup) {
+            const dates = record.groupedOrders?.map((order) => new Date(order.date)) || []
+            const minDate = new Date(Math.min(...dates.map((d) => d.getTime())))
+            const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())))
+
+            if (minDate.toDateString() === maxDate.toDateString()) {
+              return minDate.toLocaleDateString()
+            } else {
+              return `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`
+            }
+          }
+
           return new Date(date).toLocaleDateString()
         },
       },
       {
         id: "actions",
         header: "Actions",
-        cell: ({ row }) => (
-          <div className="flex space-x-2">
-            <IncomeRecordDialog record={row.original} onSuccess={handleFormSuccess} mode="edit" />
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. Are you sure you want to delete this order?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => handleDeleteIncome(row.original._id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Continue
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const record = row.original
+          const isChild = record._id.startsWith("child_")
+
+          return (
+            <>
+          {!record.isGroup && (
+            <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                <IncomeRecordDialog
+                  record={isChild ? { ...record, _id: record._id.replace("child_", "") } : record}
+                  onSuccess={handleFormSuccess}
+                  mode="edit"
+                />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {record.isGroup
+                        ? `This will delete all ${record.orderCount} orders in this group. This action cannot be undone.`
+                        : "This action cannot be undone. Are you sure you want to delete this order?"}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleDeleteIncome(row.original._id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Continue
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+            )}
+            </>
+          )
+        },
         enableSorting: false,
       },
     ],
-    [incomeRecords, isOnline],
+    [toggleGroupExpansion, expandedGroups, handleFormSuccess],
   )
 
   // Expense table columns
@@ -414,12 +666,12 @@ export default function RecordsPage() {
         enableSorting: false,
       },
     ],
-    [expenseRecords, isOnline],
+    [handleFormSuccess],
   )
 
-  // Income table instance
+  // Income table instance - use grouped data
   const incomeTable = useReactTable({
-    data: incomeRecords,
+    data: groupedIncomeRecords,
     columns: incomeColumns,
     state: {
       sorting: incomeSorting,
@@ -575,30 +827,23 @@ export default function RecordsPage() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-6">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
-                <div className="relative w-full sm:w-[300px]">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search orders..."
                     value={incomeGlobalFilter ?? ""}
                     onChange={(event) => setIncomeGlobalFilter(String(event.target.value))}
-                    className="pl-8 w-full"
+                    className="pl-8 w-[300px]"
                   />
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={fetchRecords}
-                  disabled={isLoading}
-                  className="w-full sm:w-auto"
-                >
+                <Button variant="outline" onClick={fetchRecords} disabled={isLoading}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
               </div>
-              <div className="w-full md:w-auto">
-                <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
-              </div>
+              <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
             </div>
 
             <Card>
@@ -630,15 +875,29 @@ export default function RecordsPage() {
                         </TableHeader>
                         <TableBody>
                           {incomeTable.getRowModel().rows?.length ? (
-                            incomeTable.getRowModel().rows.map((row) => (
-                              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                                {row.getVisibleCells().map((cell) => (
-                                  <TableCell key={cell.id}>
-                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))
+                            incomeTable.getRowModel().rows.map((row) => {
+                              const isChild = row.original._id.startsWith("child_")
+                              const isGroup = row.original.isGroup
+
+                              return (
+                                <TableRow
+                                  key={row.id}
+                                  data-state={row.getIsSelected() && "selected"}
+                                  onClick={isGroup ? () => toggleGroupExpansion(row.original.dueAccountId!) : undefined}
+                                  className={`
+                                    ${isChild ? "bg-gray-900/50 border-l-2 border-l-gray-300" : ""} 
+                                    ${isGroup ? "bg-gray-800/50 hover:bg-gray-600 border-l-2 border-l-gray-500" : ""}
+                                    ${!isChild && !isGroup ? "hover:bg-gray-800" : ""}
+                                  `}
+                                >
+                                  {row.getVisibleCells().map((cell) => (
+                                    <TableCell key={cell.id}>
+                                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              )
+                            })
                           ) : (
                             <TableRow>
                               <TableCell colSpan={incomeColumns.length} className="h-24 text-center">

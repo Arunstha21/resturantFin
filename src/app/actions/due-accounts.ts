@@ -40,7 +40,7 @@ export async function createDueAccount(data: DueAccountInput) {
 
   revalidatePath("/due-accounts")
 
-  return { success: true, account: JSON.parse(JSON.stringify(account)) }
+  return { success: true, record: JSON.parse(JSON.stringify(account)) }
 }
 
 export async function updateDueAccount(id: string, data: DueAccountInput) {
@@ -61,7 +61,7 @@ export async function updateDueAccount(id: string, data: DueAccountInput) {
 
   revalidatePath("/due-accounts")
 
-  return { success: true, account: JSON.parse(JSON.stringify(account)) }
+  return { success: true, record: JSON.parse(JSON.stringify(account)) }
 }
 
 export async function deleteDueAccount(id: string) {
