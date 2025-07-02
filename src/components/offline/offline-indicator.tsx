@@ -1,6 +1,6 @@
 "use client"
 
-import { useOffline } from "../hooks/use-offline"
+import { useOffline } from "../../hooks/use-offline"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"

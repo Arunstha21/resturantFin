@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +18,7 @@ import type { IncomeRecord } from "@/types"
 import { formatCurrency } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useOffline } from "../hooks/use-offline"
+import { useOffline } from "../../hooks/use-offline"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -58,6 +58,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [isSplitPayment, setIsSplitPayment] = useState(false)
 
   const { isOnline } = useOffline()
+  const [dueAccounts, setDueAccounts] = useState<any[]>([])
+  const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
 
   const safeRecord: IncomeRecordInput = record
     ? {
@@ -65,11 +67,15 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         date: record.date instanceof Date ? record.date : new Date(record.date),
         discount: record.discount || 0,
         tip: record.tip || 0,
+        paymentMethod: record.paymentMethod || "cash",
+        paymentStatus: record.paymentStatus || "pending",
         cashAmount: record.cashAmount || 0,
         digitalAmount: record.digitalAmount || 0,
         tableNumber: record.tableNumber || "",
         customerName: record.customerName || "",
         notes: record.notes || "",
+        isDueAccount: record.isDueAccount || false,
+        dueAccountId: record.dueAccountId || "",
       }
     : {
         items: [{ name: "", quantity: 1, price: 0 }],
@@ -85,6 +91,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         tableNumber: "",
         customerName: "",
         notes: "",
+        isDueAccount: false,
+        dueAccountId: "",
       }
 
   const defaultValues: IncomeRecordInput = {
@@ -152,6 +160,35 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     calculateTotals()
   }, [calculateTotals])
 
+  useEffect(() => {
+    const fetchDueAccounts = async () => {
+      try {
+        const accounts = await OfflineAPI.getDueAccounts()
+        setDueAccounts(accounts || [])
+      } catch (error) {
+        console.error("Failed to fetch due accounts:", error)
+      }
+    }
+
+    fetchDueAccounts()
+  }, [])
+
+  useEffect(() => {
+    if (record?.isDueAccount && record.dueAccountId && dueAccounts.length > 0) {
+      const accountExists = dueAccounts.some((acc) => acc._id === record.dueAccountId)
+      if (accountExists) {
+        setSelectedDueAccount(record.dueAccountId)
+        setValue("isDueAccount", true)
+        setValue("dueAccountId", record.dueAccountId)
+
+        const account = dueAccounts.find((acc) => acc._id === record.dueAccountId)
+        if (account) {
+          setValue("customerName", account.customerName)
+        }
+      }
+    }
+  }, [record, dueAccounts, setValue])
+
   // Watch for any form changes that should trigger recalculation
   useEffect(() => {
     const subscription = watch((value, { name, type }) => {
@@ -181,31 +218,50 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   useEffect(() => {
     if (isSplitPayment) {
       // When enabling split payment, set initial values
-      setValue("cashAmount", 0)
-      setValue("digitalAmount", 0)
+      setValue("cashAmount", record?.cashAmount || 0)
+      setValue("digitalAmount", record?.digitalAmount || 0)
       setValue("paymentMethod", "split")
     } else {
-      // When disabling split payment, reset to single payment
-      setValue("paymentMethod", "cash")
-      setValue("cashAmount", 0)
-      setValue("digitalAmount", 0)
-      // Reset payment status to allow manual selection
-      setValue("paymentStatus", "pending")
+      // When disabling split payment, only reset if this is NOT from record data
+      if (!record) {
+        setValue("paymentMethod", "cash")
+        setValue("cashAmount", 0)
+        setValue("digitalAmount", 0)
+        setValue("paymentStatus", "pending")
+      }
     }
 
     // Trigger recalculation after state change
     setTimeout(() => {
       calculateTotals()
     }, 100)
-  }, [isSplitPayment, setValue])
+  }, [isSplitPayment, setValue, record])
 
   // Initialize split payment state based on existing data
   useEffect(() => {
-    const paymentMethod = watch("paymentMethod")
-    if (paymentMethod === "split") {
-      setIsSplitPayment(true)
+    if (record) {
+      const paymentMethod = record.paymentMethod
+      if (paymentMethod === "split") {
+        setIsSplitPayment(true)
+      }
     }
-  }, [watch])
+  }, [record]) // Only depend on record, not watch
+
+  // Initialize form values from record - NEW
+  useEffect(() => {
+    if (record) {
+      // Set form values directly from record
+      setValue("paymentMethod", record.paymentMethod || "cash")
+      setValue("paymentStatus", record.paymentStatus || "pending")
+      setValue("cashAmount", record.cashAmount || 0)
+      setValue("digitalAmount", record.digitalAmount || 0)
+
+      // Set split payment state
+      if (record.paymentMethod === "split") {
+        setIsSplitPayment(true)
+      }
+    }
+  }, [record, setValue])
 
   const addMenuItem = (menuItem: (typeof menuItems)[0]) => {
     const currentItems = watch("items") || []
@@ -293,7 +349,15 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             tableNumber: "",
             customerName: "",
             notes: "",
+            isDueAccount: false,
+            dueAccountId: "",
           })
+          setSelectedDueAccount("")
+          setShowDiscount(false)
+          setShowTip(false)
+          setShowAdditionalCharges(false)
+          setShowNotes(false)
+          setIsSplitPayment(false)
         }
         onSuccess?.()
       }
@@ -304,6 +368,30 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       setIsLoading(false)
     }
   }
+  useEffect(() => {
+    if (record) {
+      // Set additional charges visibility
+      if (record.discount && record.discount > 0) {
+        setShowAdditionalCharges(true)
+        setShowDiscount(true)
+      }
+      if (record.tip && record.tip > 0) {
+        setShowAdditionalCharges(true)
+        setShowTip(true)
+      }
+      if ((record.discount && record.discount > 0) || (record.tip && record.tip > 0)) {
+        setShowAdditionalCharges(true)
+      }
+      // Set notes visibility
+      if (record.notes && record.notes.trim() !== "") {
+        setShowNotes(true)
+      }
+      // Set split payment
+      if (record.paymentMethod === "split") {
+        setIsSplitPayment(true)
+      }
+    }
+  }, [record])
 
   const watchedItems = watch("items")
   const totalAmount = watch("totalAmount") || 0
@@ -338,6 +426,41 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <Label htmlFor="customerName">Customer Name</Label>
             <Input id="customerName" placeholder="John Doe" {...register("customerName")} />
             {errors.customerName && <p className="text-sm text-red-600">{errors.customerName.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dueAccount">Due Account (Optional)</Label>
+            <Select
+              value={selectedDueAccount}
+              onValueChange={(value) => {
+                const newValue = value === "none" ? "" : value
+                setSelectedDueAccount(newValue)
+
+                if (newValue && newValue !== "") {
+                  setValue("isDueAccount", true)
+                  setValue("dueAccountId", newValue)
+                  // Find the account and set customer name
+                  const account = dueAccounts.find((acc) => acc._id === newValue)
+                  if (account) {
+                    setValue("customerName", account.customerName)
+                  }
+                } else {
+                  setValue("isDueAccount", false)
+                  setValue("dueAccountId", "")
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select customer account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No due account</SelectItem>
+                {dueAccounts.map((account) => (
+                  <SelectItem key={account._id} value={account._id}>
+                    {account.customerName} ({formatCurrency(account.totalDueAmount || 0)} due)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -611,7 +734,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
           </div>
         </div>
 
-        {/* Payment Method Section */}
+        {/* Payment Method Section - FIXED */}
         <div className="space-y-4">
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -628,34 +751,40 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="paymentMethod">Payment Method</Label>
-                <Select
-                  value={watch("paymentMethod")}
-                  onValueChange={(value) => setValue("paymentMethod", value as "cash" | "digital")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="digital">Digital Payment</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="paymentMethod"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="digital">Digital Payment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.paymentMethod && <p className="text-sm text-red-600">{errors.paymentMethod.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="paymentStatus">Payment Status</Label>
-                <Select
-                  value={watch("paymentStatus")}
-                  onValueChange={(value) => setValue("paymentStatus", value as "pending" | "completed")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  name="paymentStatus"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
                 {errors.paymentStatus && <p className="text-sm text-red-600">{errors.paymentStatus.message}</p>}
               </div>
             </div>

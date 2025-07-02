@@ -24,6 +24,7 @@ export function Navbar() {
     { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
     { name: "Records", href: "/records", icon: DollarSign },
     { name: "Reports", href: "/reports", icon: FileText },
+    { name: "Due Accounts", href: "/due-accounts", icon: DollarSign },
     ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/users", icon: Users }] : []),
   ]
 

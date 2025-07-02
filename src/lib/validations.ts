@@ -26,6 +26,13 @@ export const incomeRecordSchema = z.object({
   tableNumber: z.string().optional(),
   customerName: z.string().optional(),
   notes: z.string().optional(),
+  isDueAccount: z.boolean().optional(),
+  dueAccountId: z
+    .string()
+    .optional()
+    .transform((val) => {
+      return val && val.trim() !== "" ? val : undefined
+    }),
 });
 
 export const expenseRecordSchema = z.object({
@@ -56,7 +63,13 @@ export const filterSchema = z.object({
   startDate: z.date().optional(),
   endDate: z.date().optional(),
 })
+export const dueAccountSchema = z.object({
+  customerName: z.string().min(1, "Customer name is required"),
+  customerPhone: z.string().optional(),
+  customerEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
+})
 
+export type DueAccountInput = z.infer<typeof dueAccountSchema>
 export type OrderItemInput = z.infer<typeof orderItemSchema>
 export type IncomeRecordInput = z.infer<typeof incomeRecordSchema>
 export type ExpenseRecordInput = z.infer<typeof expenseRecordSchema>

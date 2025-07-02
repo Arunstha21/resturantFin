@@ -324,12 +324,14 @@ export class SyncManager {
     }
   }
 
-  private getStoreName(type: "income" | "expense" | "user"): string {
+  private getStoreName(type: "income" | "expense" | "user" | "dueAccount"): string {
     switch (type) {
       case "income":
         return "incomeRecords"
       case "expense":
         return "expenseRecords"
+      case "dueAccount":
+        return "dueAccounts"
       case "user":
         return "users"
       default:

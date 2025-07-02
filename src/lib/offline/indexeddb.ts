@@ -1,7 +1,7 @@
 // Enhanced IndexedDB wrapper for offline storage
 export interface OfflineRecord {
   id: string
-  type: "income" | "expense" | "user"
+  type: "income" | "expense" | "user" | "dueAccount"
   data: any
   timestamp: number
   synced: boolean
@@ -11,7 +11,7 @@ export interface OfflineRecord {
 
 export interface QueuedOperation {
   id: string
-  type: "income" | "expense" | "user"
+  type: "income" | "expense" | "user" | "dueAccount"
   operation: "create" | "update" | "delete"
   data: any
   timestamp: number
@@ -29,7 +29,7 @@ export interface CachedApiResponse {
 class OfflineDB {
   private db: IDBDatabase | null = null
   private readonly dbName = "RestaurantFinDB"
-  private readonly version = 2
+  private readonly version = 3
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -71,6 +71,14 @@ class OfflineDB {
           const usersStore = db.createObjectStore("users", { keyPath: "id" })
           usersStore.createIndex("synced", "synced", { unique: false })
           usersStore.createIndex("email", "data.email", { unique: false })
+        }
+
+        // Due accounts store
+        if (!db.objectStoreNames.contains("dueAccounts")) {
+          const dueAccountsStore = db.createObjectStore("dueAccounts", { keyPath: "id" })
+          dueAccountsStore.createIndex("synced", "synced", { unique: false })
+          dueAccountsStore.createIndex("timestamp", "timestamp", { unique: false })
+          dueAccountsStore.createIndex("customerName", "data.customerName", { unique: false })
         }
 
         // Queued operations store
@@ -301,7 +309,7 @@ class OfflineDB {
   async getStorageStats(): Promise<{ [key: string]: number }> {
     const stats: { [key: string]: number } = {}
 
-    const stores = ["incomeRecords", "expenseRecords", "users", "queuedOperations", "apiCache"]
+    const stores = ["incomeRecords", "expenseRecords", "users", "queuedOperations", "apiCache", "dueAccounts"]
 
     for (const store of stores) {
       try {

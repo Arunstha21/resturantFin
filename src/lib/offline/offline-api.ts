@@ -5,6 +5,7 @@ import { offlineDB } from "./indexeddb"
 import { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } from "@/app/actions/income-records"
 import { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } from "@/app/actions/expense-records"
 import { getDashboardStats } from "@/app/actions/dashboard"
+import { createDueAccount, deleteDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
 
 // Enhanced offline-aware API wrapper that uses server actions
 export class OfflineAPI {
@@ -332,6 +333,132 @@ export class OfflineAPI {
       console.error(`Failed to get ${type} records:`, error)
       // Return local records as fallback
       return await syncManager.getLocalRecords(type)
+    }
+  }
+
+  // Due Accounts
+  static async getDueAccounts(): Promise<any[]> {
+    try {
+      // Try to get fresh data from server if online
+      if (navigator.onLine) {
+        try {
+          const response = await fetch("/api/due-accounts")
+          if (response.ok) {
+            const serverData = await response.json()
+            // Cache the server data
+            await syncManager.cacheServerData("dueAccount", serverData.accounts || [])
+            return serverData.accounts || []
+          }
+        } catch (error) {
+          console.warn("Failed to fetch from server, using local data:", error)
+        }
+      }
+
+      // Fallback to local data
+      const localRecords = await syncManager.getLocalRecords("dueAccount")
+      return localRecords
+    } catch (error) {
+      console.error("Failed to get due accounts:", error)
+      return []
+    }
+  }
+
+  static async createDueAccount(data: any): Promise<{ success: boolean; record?: any }> {
+    try {
+      // Generate a temporary ID for offline use
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const recordData = {
+        ...data,
+        _id: tempId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      if (navigator.onLine) {
+        const result = await createDueAccount(recordData)
+        if (result.record) {
+          await syncManager.cacheServerData("dueAccount", [result.record])
+          return { success: true, record: result.record }
+        }
+        return { success: false }
+      }
+
+      // Queue for offline sync and update local cache immediately
+      await syncManager.queueOperation("dueAccount", "create", recordData)
+      await this.updateLocalDueAccountCache("create", recordData)
+      return { success: true, record: recordData }
+    } catch (error) {
+      console.error("Failed to create due account:", error)
+      return { success: false }
+    }
+  }
+
+  static async updateDueAccount(id: string, data: any): Promise<{ success: boolean; record?: any }> {
+    try {
+      const recordData = {
+        ...data,
+        _id: id,
+        updatedAt: new Date().toISOString(),
+      }
+
+      if (navigator.onLine) {
+        const result = await updateDueAccount(id, recordData)
+        if (result.record) {
+          await syncManager.cacheServerData("dueAccount", [result.record])
+          return { success: true, record: result.record }
+        }
+        return { success: false }
+      }
+
+      // Queue for offline sync and update local cache immediately
+      await syncManager.queueOperation("dueAccount", "update", recordData, id)
+      await this.updateLocalDueAccountCache("update", recordData)
+      return { success: true, record: recordData }
+    } catch (error) {
+      console.error("Failed to update due account:", error)
+      return { success: false }
+    }
+  }
+
+  static async deleteDueAccount(id: string): Promise<{ success: boolean }> {
+    try {
+      if (navigator.onLine) {
+        await deleteDueAccount(id)
+        return { success: true }
+      }
+
+      // Queue for offline sync and update local cache immediately
+      await syncManager.queueOperation("dueAccount", "delete", { _id: id }, id)
+      await this.updateLocalDueAccountCache("delete", { _id: id })
+      return { success: true }
+    } catch (error) {
+      console.error("Failed to delete due account:", error)
+      return { success: false }
+    }
+  }
+
+  // Helper method to update local due account cache
+  private static async updateLocalDueAccountCache(operation: "create" | "update" | "delete", record: any) {
+    try {
+      const storeName = "dueAccounts"
+
+      if (operation === "delete") {
+        await offlineDB.deleteRecord(storeName, record._id)
+      } else {
+        const offlineRecord = {
+          id: record._id,
+          type: "dueAccount" as const,
+          data: record,
+          timestamp: Date.now(),
+          synced: navigator.onLine, // Mark as synced if we're online
+          operation,
+        }
+        await offlineDB.addRecord(storeName, offlineRecord)
+      }
+
+      console.log(`Local due account cache updated: ${operation} for record ${record._id}`)
+    } catch (error) {
+      console.error("Failed to update local due account cache:", error)
     }
   }
 

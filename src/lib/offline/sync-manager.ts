@@ -82,7 +82,7 @@ export class SyncManager {
   }
 
   async queueOperation(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     operation: "create" | "update" | "delete",
     data: any,
     originalId?: string,
@@ -119,7 +119,7 @@ export class SyncManager {
   }
 
   private async consolidatePendingOperations(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     recordId: string,
     newOperation: "create" | "update" | "delete",
     newData: any,
@@ -182,7 +182,7 @@ export class SyncManager {
   }
 
   private async updateLocalRecord(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     operation: "create" | "update" | "delete",
     data: any,
     queueId: string,
@@ -233,7 +233,7 @@ export class SyncManager {
     await offlineDB.addRecord(storeName, record)
   }
 
-  async getLocalRecords(type: "income" | "expense" | "user"): Promise<any[]> {
+  async getLocalRecords(type: "income" | "expense" | "user" | "dueAccount"): Promise<any[]> {
     try {
       const storeName = this.getStoreName(type)
       const records = await offlineDB.getRecords(storeName)
@@ -270,7 +270,7 @@ export class SyncManager {
     }
   }
 
-  async cacheServerData(type: "income" | "expense" | "user", data: any[]): Promise<void> {
+  async cacheServerData(type: "income" | "expense" | "user" | "dueAccount", data: any[]): Promise<void> {
     try {
       const storeName = this.getStoreName(type)
 
@@ -428,6 +428,9 @@ export class SyncManager {
     const { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } = await import(
       "@/app/actions/expense-records"
     )
+    const { createDueAccount, updateDueAccount, deleteDueAccount } = await import(
+      "@/app/actions/due-accounts"
+    )
 
     // Clean the data before sending (remove offline-specific fields)
     const cleanData = { ...data }
@@ -516,6 +519,41 @@ export class SyncManager {
           }
           break
 
+        case "dueAccount":
+          switch (op) {
+            case "create":
+              if (isTemporaryId) {
+                delete cleanData._id
+              }
+              console.log(`Creating due account via server action:`, cleanData)
+              result = await createDueAccount(cleanData)
+              break
+
+            case "update":
+              if (isTemporaryId) {
+                delete cleanData._id
+                console.log(`Creating due account (was temp update) via server action:`, cleanData)
+                result = await createDueAccount(cleanData)
+              } else {
+                console.log(`Updating due account via server action:`, cleanData._id, cleanData)
+                result = await updateDueAccount(cleanData._id, cleanData)
+              }
+              break
+
+            case "delete":
+              if (isTemporaryId) {
+                console.log(`Skipping delete of temporary due account record: ${cleanData._id}`)
+                return
+              }
+              console.log(`Deleting due account via server action:`, cleanData._id)
+              result = await deleteDueAccount(cleanData._id)
+              break
+
+            default:
+              throw new Error(`Unknown operation: ${op}`)
+          }
+          break
+
         case "user":
           // For users, we'll still use fetch since we don't have server actions for them yet
           let endpoint = "/api/users"
@@ -597,7 +635,7 @@ export class SyncManager {
   }
 
   private async updateLocalRecordAfterSync(
-    type: "income" | "expense" | "user",
+    type: "income" | "expense" | "user" | "dueAccount",
     operation: "create" | "update" | "delete",
     originalData: any,
     result: any,
@@ -638,7 +676,7 @@ export class SyncManager {
     }
   }
 
-  private getStoreName(type: "income" | "expense" | "user"): string {
+  private getStoreName(type: "income" | "expense" | "user" | "dueAccount"): string {
     switch (type) {
       case "income":
         return "incomeRecords"
@@ -646,6 +684,8 @@ export class SyncManager {
         return "expenseRecords"
       case "user":
         return "users"
+      case "dueAccount":
+        return "dueAccounts"
       default:
         throw new Error(`Unknown type: ${type}`)
     }
@@ -671,6 +711,7 @@ export class SyncManager {
       await offlineDB.clearStore("expenseRecords")
       await offlineDB.clearStore("users")
       await offlineDB.clearStore("queuedOperations")
+      await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("apiCache")
       console.log("Local data cleared")
       toast.success("Local data cleared")
