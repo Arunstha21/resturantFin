@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Plus, Edit, Trash2, IndianRupee } from "lucide-react"
+import { Plus, Edit, Trash2, IndianRupee, RefreshCw } from "lucide-react"
 import { MenuItem } from "@/types"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -142,7 +142,15 @@ export default function MenuManagement() {
     selectedCategory === "all" ? menuItems : menuItems.filter((item) => item.category === selectedCategory)
 
   if (isLoading) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>
+    return (
+    <div className="min-h-screen bg-background"><Navbar />
+        <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center py-12">
+            <RefreshCw className="h-8 w-8 animate-spin mr-3" />
+            <span className="text-lg">Loading...</span>
+          </div>
+        </main><div className="flex justify-center items-center min-h-screen">Loading...</div>
+    </div>)
   }
 
   return (
