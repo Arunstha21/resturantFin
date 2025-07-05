@@ -155,7 +155,7 @@ export default function DueAccountsPage() {
 
   const copyPublicLink = (accountId: string) => {
     if (typeof window !== "undefined") {
-      const publicUrl = `${window.location.origin}/due-accounts/public/${accountId}`
+      const publicUrl = `${window.location.origin}/public/due-accounts/${accountId}`
       navigator.clipboard.writeText(publicUrl)
       toast.success("Public link copied to clipboard!")
     }
