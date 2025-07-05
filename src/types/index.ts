@@ -103,3 +103,19 @@ export interface DueAccountSummary {
   lastOrderDate: Date | string
   orders: IncomeRecord[]
 }
+
+export interface MenuItem {
+  _id: string
+  name: string
+  description?: string
+  price: number
+  category: string
+  isAvailable: boolean
+  image?: string
+  createdBy: string
+  createdAt: Date | string
+  updatedAt: Date | string
+  _offline?: boolean
+  _localId?: string
+  _timestamp?: number
+}

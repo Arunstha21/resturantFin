@@ -1,10 +1,11 @@
 import { getDashboardStats } from "@/app/actions/dashboard"
 import { syncManager } from "./sync-manager"
-import type { IncomeRecord, ExpenseRecord, User, DueAccount } from "@/types"
+import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { offlineDB } from "./indexeddb"
 
 // Import server actions
 import { createDueAccount, deleteDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
+import { createMenuItem, deleteMenuItem, updateMenuItem } from "@/app/actions/menu-items"
 
 // Enhanced offline-aware API wrapper that uses server actions
 export class OfflineAPI {
@@ -333,7 +334,7 @@ export class OfflineAPI {
     }
   }
 
-    private static async fetchDashboardStatsBackground(dateFilter: string) {
+  private static async fetchDashboardStatsBackground(dateFilter: string) {
     try {
       const data = await getDashboardStats(dateFilter)
       const cacheKey = `/api/dashboard?filter=${dateFilter}`
@@ -343,7 +344,6 @@ export class OfflineAPI {
       // Silent fail for background fetch
     }
   }
-
 
   private static async calculateDashboardStatsFromLocal(dateFilter: string): Promise<any> {
     try {
@@ -396,6 +396,112 @@ export class OfflineAPI {
         pendingPaymentsCount: 0,
         _fromCache: true,
       }
+    }
+  }
+
+  // Menu Items
+  static async getMenuItems(category?: string, availableOnly?: boolean): Promise<any[]> {
+    try {
+      // Try to get from server first if online
+      if (syncManager.getOnlineStatus()) {
+        try {
+          const params = new URLSearchParams()
+          if (category) params.append("category", category)
+          if (availableOnly) params.append("available", "true")
+
+          const response = await fetch(`/api/menu-items?${params.toString()}`)
+          if (response.ok) {
+            const data = await response.json()
+            // Cache the server data
+            await syncManager.cacheServerData("menuItem", data.menuItems || [])
+            return data.menuItems || []
+          }
+        } catch (error) {
+          console.log("Server fetch failed, using local data:", error)
+        }
+      }
+
+      // Fallback to local data
+      const localItems = await syncManager.getLocalRecords("menuItem")
+
+      return localItems
+    } catch (error) {
+      console.error("Failed to get menu items:", error)
+      return []
+    }
+  }
+
+  static async createMenuItem(data: any): Promise<{ success: boolean; record?: any }> {
+    try {
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const recordData = {
+        ...data,
+        _id: tempId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      if (navigator.onLine) {
+        const result = await createMenuItem(recordData)
+        if (result.record) {
+          await syncManager.cacheServerData("menuItem", [result.record])
+          return { success: true, record: result.record }
+        }
+        return { success: false }
+      }
+
+      await syncManager.queueOperation("menuItem", "create", recordData)
+
+      return {
+        success: true,
+        record: recordData,
+      }
+    } catch (error) {
+      console.error("Failed to create menu item:", error)
+      return { success: false }
+    }
+  }
+
+  static async updateMenuItem(id: string, data: any): Promise<{ success: boolean; record?: any }> {
+    try {
+      const recordData = {
+        ...data,
+        _id: id,
+        updatedAt: new Date(),
+      }
+
+      if (navigator.onLine) {
+        const result = await updateMenuItem(id, recordData)
+        if (result.record) {
+          await syncManager.cacheServerData("menuItem", [result.record])
+          return { success: true, record: result.record }
+        }
+        return { success: false }
+      }
+
+      await syncManager.queueOperation("menuItem", "update", recordData, id)
+
+      return {
+        success: true,
+        record: recordData,
+      }
+    } catch (error) {
+      console.error("Failed to update menu item:", error)
+      return { success: false }
+    }
+  }
+
+  static async deleteMenuItem(id: string): Promise<{ success: boolean }> {
+    try {
+        if (navigator.onLine) {
+        await deleteMenuItem(id)
+        return { success: false }
+      }
+      await syncManager.queueOperation("menuItem", "delete", { _id: id }, id)
+      return { success: true }
+    } catch (error) {
+      console.error("Failed to delete menu item:", error)
+      return { success: false }
     }
   }
 

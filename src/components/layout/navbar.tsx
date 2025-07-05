@@ -15,17 +15,20 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Menu, X, BarChart3, FileText, DollarSign, LogOut, Users } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 export function Navbar() {
   const { data: session } = useSession()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const path = usePathname()
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-    { name: "Records", href: "/records", icon: DollarSign },
-    { name: "Reports", href: "/reports", icon: FileText },
-    { name: "Due Accounts", href: "/due-accounts", icon: DollarSign },
-    ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/users", icon: Users }] : []),
+    { name: "Records", href: "/dashboard/records", icon: DollarSign },
+    { name: "Reports", href: "/dashboard/reports", icon: FileText },
+    {name: "Menu", href: "/dashboard/menu-management", icon: FileText },
+    { name: "Due Accounts", href: "/dashboard/due-accounts", icon: DollarSign },
+    ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/dashboard/users", icon: Users }] : []),
   ]
 
   return (
@@ -43,7 +46,9 @@ export function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="flex items-center px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className={`flex items-center px-3 py-2 text-sm font-medium hover:x transition-colors ` +
+                    (path === item.href ? "text-foreground border-b-2 border-primary" :
+                      "hover:border-b-2 hover:border-primary hover:text-foreground text-muted-foreground")}
                 >
                   <item.icon className="h-4 w-4 mr-2" />
                   {item.name}

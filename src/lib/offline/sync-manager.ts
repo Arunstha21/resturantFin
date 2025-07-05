@@ -82,7 +82,7 @@ export class SyncManager {
   }
 
   async queueOperation(
-    type: "income" | "expense" | "user" | "dueAccount",
+    type: "income" | "expense" | "user" | "dueAccount" | "menuItem",
     operation: "create" | "update" | "delete",
     data: any,
     originalId?: string,
@@ -119,7 +119,7 @@ export class SyncManager {
   }
 
   private async consolidatePendingOperations(
-    type: "income" | "expense" | "user" | "dueAccount",
+    type: "income" | "expense" | "user" | "dueAccount" | "menuItem",
     recordId: string,
     newOperation: "create" | "update" | "delete",
     newData: any,
@@ -182,7 +182,7 @@ export class SyncManager {
   }
 
   private async updateLocalRecord(
-    type: "income" | "expense" | "user" | "dueAccount",
+    type: "income" | "expense" | "user" | "dueAccount" | "menuItem",
     operation: "create" | "update" | "delete",
     data: any,
     queueId: string,
@@ -231,7 +231,7 @@ export class SyncManager {
     await offlineDB.addRecord(storeName, record)
   }
 
-  async getLocalRecords(type: "income" | "expense" | "user" | "dueAccount"): Promise<any[]> {
+  async getLocalRecords(type: "income" | "expense" | "user" | "dueAccount" | "menuItem"): Promise<any[]> {
     try {
       const storeName = this.getStoreName(type)
       const records = await offlineDB.getRecords(storeName)
@@ -268,7 +268,7 @@ export class SyncManager {
     }
   }
 
-  async cacheServerData(type: "income" | "expense" | "user" | "dueAccount", data: any[]): Promise<void> {
+  async cacheServerData(type: "income" | "expense" | "user" | "dueAccount" | "menuItem", data: any[]): Promise<void> {
     try {
       const storeName = this.getStoreName(type)
 
@@ -420,16 +420,6 @@ export class SyncManager {
 
   private async syncSingleOperation(operation: QueuedOperation) {
     const { type, operation: op, data } = operation
-
-    // Import server actions dynamically to avoid issues
-    const { createIncomeRecord, updateIncomeRecord, deleteIncomeRecord } = await import("@/app/actions/income-records")
-    const { createExpenseRecord, updateExpenseRecord, deleteExpenseRecord } = await import(
-      "@/app/actions/expense-records"
-    )
-    const { createDueAccount, updateDueAccount, deleteDueAccount } = await import(
-      "@/app/actions/due-accounts"
-    )
-
     // Clean the data before sending (remove offline-specific fields)
     const cleanData = { ...data }
     delete cleanData._offline
@@ -456,76 +446,11 @@ export class SyncManager {
           result = await this.syncDueAccountOperation(op, cleanData, isTemporaryId)
           break
 
-        case "dueAccount":
-          switch (op) {
-            case "create":
-              if (isTemporaryId) {
-                delete cleanData._id
-              }
-              console.log(`Creating due account via server action:`, cleanData)
-              result = await createDueAccount(cleanData)
-              break
-
-            case "update":
-              if (isTemporaryId) {
-                delete cleanData._id
-                console.log(`Creating due account (was temp update) via server action:`, cleanData)
-                result = await createDueAccount(cleanData)
-              } else {
-                console.log(`Updating due account via server action:`, cleanData._id, cleanData)
-                result = await updateDueAccount(cleanData._id, cleanData)
-              }
-              break
-
-            case "delete":
-              if (isTemporaryId) {
-                console.log(`Skipping delete of temporary due account record: ${cleanData._id}`)
-                return
-              }
-              console.log(`Deleting due account via server action:`, cleanData._id)
-              result = await deleteDueAccount(cleanData._id)
-              break
-
-            default:
-              throw new Error(`Unknown operation: ${op}`)
-          }
+        case "menuItem":
+          result = await this.syncMenuItemOperation(op, cleanData, isTemporaryId)
           break
 
-        case "dueAccount":
-          switch (op) {
-            case "create":
-              if (isTemporaryId) {
-                delete cleanData._id
-              }
-              console.log(`Creating due account via server action:`, cleanData)
-              result = await createDueAccount(cleanData)
-              break
-
-            case "update":
-              if (isTemporaryId) {
-                delete cleanData._id
-                console.log(`Creating due account (was temp update) via server action:`, cleanData)
-                result = await createDueAccount(cleanData)
-              } else {
-                console.log(`Updating due account via server action:`, cleanData._id, cleanData)
-                result = await updateDueAccount(cleanData._id, cleanData)
-              }
-              break
-
-            case "delete":
-              if (isTemporaryId) {
-                console.log(`Skipping delete of temporary due account record: ${cleanData._id}`)
-                return
-              }
-              console.log(`Deleting due account via server action:`, cleanData._id)
-              result = await deleteDueAccount(cleanData._id)
-              break
-
-            default:
-              throw new Error(`Unknown operation: ${op}`)
-          }
           break
-
         case "user":
           result = await this.syncUserOperation(op, cleanData, isTemporaryId)
           break
@@ -546,6 +471,45 @@ export class SyncManager {
     } catch (error) {
       console.error(`Failed to sync ${op} ${type}:`, error)
       throw error
+    }
+  }
+
+  private async syncMenuItemOperation(
+    operation: "create" | "update" | "delete",
+    cleanData: any,
+    isTemporaryId: boolean,
+  ) {
+    // Import server actions dynamically to avoid issues
+    const { createMenuItem, updateMenuItem, deleteMenuItem } = await import("@/app/actions/menu-items")
+
+    switch (operation) {
+      case "create":
+        if (isTemporaryId) {
+          delete cleanData._id
+        }
+        console.log(`Creating menu item via server action:`, cleanData)
+        return await createMenuItem(cleanData)
+
+      case "update":
+        if (isTemporaryId) {
+          delete cleanData._id
+          console.log(`Creating menu item (was temp update) via server action:`, cleanData)
+          return await createMenuItem(cleanData)
+        } else {
+          console.log(`Updating menu item via server action:`, cleanData._id, cleanData)
+          return await updateMenuItem(cleanData._id, cleanData)
+        }
+
+      case "delete":
+        if (isTemporaryId) {
+          console.log(`Skipping delete of temporary menu item: ${cleanData._id}`)
+          return { success: true }
+        }
+        console.log(`Deleting menu item via server action:`, cleanData._id)
+        return await deleteMenuItem(cleanData._id)
+
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
     }
   }
 
@@ -732,7 +696,7 @@ export class SyncManager {
   }
 
   private async updateLocalRecordAfterSync(
-    type: "income" | "expense" | "user" | "dueAccount",
+    type: "income" | "expense" | "user" | "dueAccount" | "menuItem",
     operation: "create" | "update" | "delete",
     originalData: any,
     result: any,
@@ -772,7 +736,7 @@ export class SyncManager {
     }
   }
 
-  private getStoreName(type: "income" | "expense" | "user" | "dueAccount"): string {
+  private getStoreName(type: "income" | "expense" | "user" | "dueAccount" | "menuItem"): string {
     switch (type) {
       case "income":
         return "incomeRecords"
@@ -782,6 +746,8 @@ export class SyncManager {
         return "users"
       case "dueAccount":
         return "dueAccounts"
+      case "menuItem":
+        return "menuItems"
       default:
         throw new Error(`Unknown type: ${type}`)
     }
@@ -807,6 +773,7 @@ export class SyncManager {
       await offlineDB.clearStore("expenseRecords")
       await offlineDB.clearStore("users")
       await offlineDB.clearStore("dueAccounts")
+      await offlineDB.clearStore("menuItems")
       await offlineDB.clearStore("queuedOperations")
       await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("apiCache")
