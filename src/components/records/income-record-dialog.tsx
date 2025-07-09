@@ -1,51 +1,50 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { IncomeRecordForm } from "./income-record-form"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Edit } from "lucide-react"
 import type { IncomeRecord } from "@/types"
+import { IncomeRecordForm } from "./income-record-form"
 
-interface IncomeRecordDialogProps {
+interface IncomeDialogProps {
   record?: IncomeRecord
-  onSuccess?: () => void
-  trigger?: React.ReactNode
-  mode?: "create" | "edit"
+  mode: "create" | "edit"
+  onSuccess: () => Promise<void>
 }
 
-export function IncomeRecordDialog({ record, onSuccess, trigger, mode = "create" }: IncomeRecordDialogProps) {
+export function IncomeDialog({ record, mode, onSuccess }: IncomeDialogProps) {
   const [open, setOpen] = useState(false)
 
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
+    console.log(`🎉 Income dialog success - mode: ${mode}`)
     setOpen(false)
-    onSuccess?.()
-  }
 
-  const defaultTrigger =
-    mode === "create" ? (
-      <Button>
-        <Plus className="h-4 w-4 mr-2" />
-        New Order
-      </Button>
-    ) : (
-      <Button variant="outline" size="sm">
-        <Edit className="h-4 w-4" />
-      </Button>
-    )
+    // Add a small delay to ensure dialog closes before refresh
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    await onSuccess()
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
-      <DialogContent className="overflow-y-auto max-w-2xl max-h-[95vh]" aria-describedby="dialog-description">
+      <DialogTrigger asChild>
+        {mode === "create" ? (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Order
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm">
+            <Edit className="h-4 w-4" />
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{record ? "Edit Order" : "Create New Order"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? "Create New Order" : "Edit Order"}</DialogTitle>
         </DialogHeader>
-        <div className="mt-4">
-          <IncomeRecordForm record={record} onSuccess={handleSuccess} />
-        </div>
+        <IncomeRecordForm record={record} onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   )

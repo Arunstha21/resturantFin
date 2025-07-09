@@ -3,11 +3,15 @@
 import { useState } from "react"
 import { Navbar } from "@/components/layout/navbar"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Receipt, CreditCard, WifiOff, RefreshCw } from "lucide-react"
 import { useOffline } from "@/hooks/use-offline"
-import { useRecords } from "@/components/records/hooks/use-records"
+import { useRecordsManager } from "@/components/records/hooks/use-records-manager"
 import { RecordsTable } from "@/components/records/components/records-table"
+import { IncomeDialog } from "@/components/records/income-record-dialog"
+import { ExpenseDialog } from "@/components/records/expense-record-dialog"
+import { DebugPanel } from "@/components/records/components/debug-pannel"
 
 export default function RecordsPage() {
   const [activeTab, setActiveTab] = useState("income")
@@ -18,12 +22,15 @@ export default function RecordsPage() {
     expenseRecords,
     isLoading,
     isRefreshing,
-    fetchRecords,
-    handleIncomeSuccess,
-    handleExpenseSuccess,
-    handleDeleteIncome,
-    handleDeleteExpense,
-  } = useRecords()
+    refreshData,
+    forceRefresh,
+    handleIncomeCreate,
+    handleIncomeUpdate,
+    handleIncomeDelete,
+    handleExpenseCreate,
+    handleExpenseUpdate,
+    handleExpenseDelete,
+  } = useRecordsManager()
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,19 +58,29 @@ export default function RecordsPage() {
                   {pendingOperations} Pending Sync
                 </Badge>
               )}
+              {isRefreshing && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Refreshing
+                </Badge>
+              )}
             </div>
           </div>
+          <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh All
+          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="income" className="flex items-center gap-2">
               <Receipt className="h-4 w-4" />
-              Orders & Income
+              Orders & Income ({incomeRecords.length})
             </TabsTrigger>
             <TabsTrigger value="expenses" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
-              Expenses
+              Expenses ({expenseRecords.length})
             </TabsTrigger>
           </TabsList>
 
@@ -73,9 +90,13 @@ export default function RecordsPage() {
               data={incomeRecords}
               isLoading={isLoading}
               isRefreshing={isRefreshing}
-              onRefresh={fetchRecords}
-              onSuccess={handleIncomeSuccess}
-              onDelete={handleDeleteIncome}
+              onRefresh={refreshData}
+              onSuccess={handleIncomeUpdate}
+              onDelete={handleIncomeDelete}
+              CreateDialog={({ onSuccess }) => <IncomeDialog mode="create" onSuccess={handleIncomeCreate} />}
+              EditDialog={({ record, onSuccess }) => (
+                <IncomeDialog mode="edit" record={record} onSuccess={handleIncomeUpdate} />
+              )}
             />
           </TabsContent>
 
@@ -85,12 +106,25 @@ export default function RecordsPage() {
               data={expenseRecords}
               isLoading={isLoading}
               isRefreshing={isRefreshing}
-              onRefresh={fetchRecords}
-              onSuccess={handleExpenseSuccess}
-              onDelete={handleDeleteExpense}
+              onRefresh={refreshData}
+              onSuccess={handleExpenseUpdate}
+              onDelete={handleExpenseDelete}
+              CreateDialog={({ onSuccess }) => <ExpenseDialog mode="create" onSuccess={handleExpenseCreate} />}
+              EditDialog={({ record, onSuccess }) => (
+                <ExpenseDialog mode="edit" record={record} onSuccess={handleExpenseUpdate} />
+              )}
             />
           </TabsContent>
         </Tabs>
+
+        {/* Debug Panel for development */}
+        <DebugPanel
+          incomeCount={incomeRecords.length}
+          expenseCount={expenseRecords.length}
+          isLoading={isLoading}
+          isRefreshing={isRefreshing}
+          onForceRefresh={forceRefresh}
+        />
       </main>
     </div>
   )

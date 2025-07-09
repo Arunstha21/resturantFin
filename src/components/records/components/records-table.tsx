@@ -31,8 +31,6 @@ import {
   Trash2,
 } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
-import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
-import { ExpenseRecordDialog } from "@/components/records/expense-record-dialog"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -61,10 +59,12 @@ interface RecordsTableProps {
   onRefresh: () => void
   onSuccess: () => Promise<void>
   onDelete: (id: string) => Promise<void>
+  CreateDialog: React.ComponentType<{ onSuccess: () => Promise<void> }>
+  EditDialog: React.ComponentType<{ record: any; onSuccess: () => Promise<void> }>
 }
 
 export const RecordsTable = React.memo<RecordsTableProps>(
-  ({ type, data, isLoading, isRefreshing, onRefresh, onSuccess, onDelete }) => {
+  ({ type, data, isLoading, isRefreshing, onRefresh, onSuccess, onDelete, CreateDialog, EditDialog }) => {
     const [sorting, setSorting] = useState<SortingState>([])
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
     const [globalFilter, setGlobalFilter] = useState("")
@@ -403,10 +403,9 @@ export const RecordsTable = React.memo<RecordsTableProps>(
               <>
                 {!record.isGroup && (
                   <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                    <IncomeRecordDialog
+                    <EditDialog
                       record={isChild ? { ...record, _id: record._id.replace("child_", "") } : record}
                       onSuccess={onSuccess}
-                      mode="edit"
                     />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -442,7 +441,7 @@ export const RecordsTable = React.memo<RecordsTableProps>(
           enableSorting: false,
         },
       ],
-      [expandedGroups, onSuccess, onDelete],
+      [expandedGroups, onSuccess, onDelete, EditDialog],
     )
 
     // Expense table columns
@@ -544,7 +543,7 @@ export const RecordsTable = React.memo<RecordsTableProps>(
           header: "Actions",
           cell: ({ row }) => (
             <div className="flex space-x-2">
-              <ExpenseRecordDialog record={row.original} onSuccess={onSuccess} mode="edit" />
+              <EditDialog record={row.original} onSuccess={onSuccess} />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -574,7 +573,7 @@ export const RecordsTable = React.memo<RecordsTableProps>(
           enableSorting: false,
         },
       ],
-      [onSuccess, onDelete],
+      [onSuccess, onDelete, EditDialog],
     )
 
     const tableData = type === "income" ? groupedIncomeRecords : (data as ExpenseRecord[])
@@ -620,16 +619,14 @@ export const RecordsTable = React.memo<RecordsTableProps>(
               Refresh
             </Button>
           </div>
-          {type === "income" ? (
-            <IncomeRecordDialog onSuccess={onSuccess} mode="create" />
-          ) : (
-            <ExpenseRecordDialog onSuccess={onSuccess} mode="create" />
-          )}
+          <CreateDialog onSuccess={onSuccess} />
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>{type === "income" ? "Orders & Income Records" : "Expense Records"}</CardTitle>
+            <CardTitle>
+              {type === "income" ? "Orders & Income Records" : "Expense Records"} ({data.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (

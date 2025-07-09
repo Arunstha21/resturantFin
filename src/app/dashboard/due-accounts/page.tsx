@@ -26,7 +26,6 @@ import type { DueAccount, DueAccountSummary } from "@/types"
 import { toast } from "sonner"
 import { useOffline } from "@/hooks/use-offline"
 import { DueAccountDialog } from "@/components/due-accounts/due-account-dialog"
-import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -38,6 +37,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
+import { IncomeDialog } from "@/components/records/income-record-dialog"
 
 export default function DueAccountsPage() {
   const [dueAccounts, setDueAccounts] = useState<DueAccount[]>([])
@@ -455,15 +455,10 @@ export default function DueAccountsPage() {
                                   {/* Order Actions */}
                                   <div className="flex items-center gap-1">
                                     {/* Edit Order Button */}
-                                    <IncomeRecordDialog
+                                    <IncomeDialog
                                       record={order}
                                       onSuccess={handleOrderSuccess}
                                       mode="edit"
-                                      trigger={
-                                        <Button variant="outline" size="sm">
-                                          <Edit className="h-3 w-3" />
-                                        </Button>
-                                      }
                                     />
 
                                     {/* Delete Order Button */}

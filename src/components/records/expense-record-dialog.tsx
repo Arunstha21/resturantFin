@@ -1,51 +1,50 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ExpenseRecordForm } from "./expense-record-form"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Edit } from "lucide-react"
 import type { ExpenseRecord } from "@/types"
+import { ExpenseRecordForm } from "./expense-record-form"
 
-interface ExpenseRecordDialogProps {
+interface ExpenseDialogProps {
   record?: ExpenseRecord
-  onSuccess?: () => void
-  trigger?: React.ReactNode
-  mode?: "create" | "edit"
+  mode: "create" | "edit"
+  onSuccess: () => Promise<void>
 }
 
-export function ExpenseRecordDialog({ record, onSuccess, trigger, mode = "create" }: ExpenseRecordDialogProps) {
+export function ExpenseDialog({ record, mode, onSuccess }: ExpenseDialogProps) {
   const [open, setOpen] = useState(false)
 
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
+    console.log(`🎉 Expense dialog success - mode: ${mode}`)
     setOpen(false)
-    onSuccess?.()
-  }
 
-  const defaultTrigger =
-    mode === "create" ? (
-      <Button>
-        <Plus className="h-4 w-4 mr-2" />
-        New Expense
-      </Button>
-    ) : (
-      <Button variant="outline" size="sm">
-        <Edit className="h-4 w-4" />
-      </Button>
-    )
+    // Add a small delay to ensure dialog closes before refresh
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    await onSuccess()
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
+      <DialogTrigger asChild>
+        {mode === "create" ? (
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Expense
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm">
+            <Edit className="h-4 w-4" />
+          </Button>
+        )}
+      </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{record ? "Edit Expense" : "Create New Expense"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? "Create New Expense" : "Edit Expense"}</DialogTitle>
         </DialogHeader>
-        <div className="mt-4">
-          <ExpenseRecordForm record={record} onSuccess={handleSuccess} />
-        </div>
+        <ExpenseRecordForm record={record} onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   )
