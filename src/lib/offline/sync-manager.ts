@@ -7,6 +7,13 @@ export class SyncManager {
   private syncCallbacks: (() => void)[] = []
   private retryTimeouts: Map<string, NodeJS.Timeout> = new Map()
   private onlineStatusUpdateTimeout: NodeJS.Timeout | null = null
+  private batchTimeout: NodeJS.Timeout | null = null
+  private pendingBatch: Map<string, QueuedOperation> = new Map()
+
+  // Reduced polling intervals
+  private readonly ONLINE_CHECK_INTERVAL = 120000 // 2 minutes when online
+  private readonly OFFLINE_CHECK_INTERVAL = 60000 // 1 minute when offline
+  private readonly BATCH_DELAY = 2000 // 2 seconds to batch operations
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -20,9 +27,12 @@ export class SyncManager {
       await offlineDB.init()
       console.log("Sync Manager: Database initialized")
 
-      // Try to sync any pending operations on startup (with delay)
+      // Only sync on startup if there are pending operations
       if (this.isOnline) {
-        setTimeout(() => this.triggerSync(), 2000)
+        const pendingCount = await this.getPendingOperationsCount()
+        if (pendingCount > 0) {
+          setTimeout(() => this.triggerSync(), 3000)
+        }
       }
     } catch (error) {
       console.error("Failed to initialize offline database:", error)
@@ -30,16 +40,18 @@ export class SyncManager {
   }
 
   private setupEventListeners() {
-    // Basic network event listeners (don't trigger connectivity tests here)
+    // Basic network event listeners
     window.addEventListener("online", () => {
       console.log("Network: Connected")
       this.isOnline = true
+      // Immediate sync when coming back online
+      setTimeout(() => this.triggerSync(), 1000)
     })
 
     window.addEventListener("offline", () => {
       console.log("Network: Disconnected")
       this.isOnline = false
-      toast.info("Network disconnected - working offline")
+      toast.info("Working offline - changes will sync when online")
     })
 
     // Listen for service worker messages
@@ -51,12 +63,15 @@ export class SyncManager {
       })
     }
 
-    // Periodic sync check (less frequent)
-    setInterval(() => {
-      if (this.isOnline && !this.syncInProgress) {
-        this.checkAndSync()
-      }
-    }, 60000) // Check every 60 seconds instead of 30
+    // Reduced frequency polling
+    setInterval(
+      () => {
+        if (this.isOnline && !this.syncInProgress) {
+          this.checkAndSync()
+        }
+      },
+      this.isOnline ? this.ONLINE_CHECK_INTERVAL : this.OFFLINE_CHECK_INTERVAL,
+    )
   }
 
   // Method to update online status from external source (like useOffline hook)
@@ -88,6 +103,7 @@ export class SyncManager {
     originalId?: string,
   ): Promise<string> {
     const id = `${type}_${operation}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const recordKey = `${type}_${originalId || data._id}`
 
     // For updates, check if there's already a pending operation for this record
     if (operation === "update" && data._id) {
@@ -104,18 +120,84 @@ export class SyncManager {
       originalId: originalId || data._id,
     }
 
-    await offlineDB.addQueuedOperation(queuedOp)
-    console.log("Operation queued:", queuedOp)
+    // Handle delete operations immediately - don't batch them
+    if (operation === "delete") {
+      console.log("Processing delete operation immediately:", queuedOp)
+
+      // Update local record immediately for UI responsiveness
+      await this.updateLocalRecord(type, operation, data, id)
+
+      // Add to queue immediately (don't batch)
+      await offlineDB.addQueuedOperation(queuedOp)
+
+      // Trigger sync immediately if online
+      if (this.isOnline) {
+        setTimeout(() => this.triggerSync(), 500) // Shorter delay for deletes
+      }
+
+      return id
+    }
+
+    // Add to pending batch for create/update operations
+    this.pendingBatch.set(recordKey, queuedOp)
 
     // Store/update in local records for immediate UI updates
     await this.updateLocalRecord(type, operation, data, id)
 
-    // Try to sync immediately if online (with delay to prevent rapid firing)
-    if (this.isOnline) {
-      setTimeout(() => this.triggerSync(), 1000)
-    }
+    // Batch operations
+    this.scheduleBatchSync()
 
     return id
+  }
+
+  // Method to mark a record as deleted without queuing for sync (used when server delete already succeeded)
+  async markRecordAsDeleted(
+    type: "income" | "expense" | "user" | "dueAccount" | "menuItem",
+    recordId: string,
+  ): Promise<void> {
+    const storeName = this.getStoreName(type)
+
+    try {
+      console.log(`Marking ${type} record as deleted locally (server delete already completed): ${recordId}`)
+
+      // Create a deleted record marker
+      const deletedRecord: OfflineRecord = {
+        id: recordId,
+        type,
+        data: {
+          _id: recordId,
+          _deleted: true,
+          _serverDeleted: true, // Flag to indicate server delete already completed
+        },
+        timestamp: Date.now(),
+        synced: true, // Mark as synced since server delete already completed
+        operation: "delete",
+      }
+
+      await offlineDB.addRecord(storeName, deletedRecord)
+
+      // Remove any pending batch operations for this record
+      const batchKey = `${type}_${recordId}`
+      if (this.pendingBatch.has(batchKey)) {
+        this.pendingBatch.delete(batchKey)
+        console.log(`Removed pending batch operation for server-deleted record: ${recordId}`)
+      }
+
+      // Remove any queued operations for this record since server delete already completed
+      const existingOperations = await offlineDB.getQueuedOperations()
+      const relatedOperations = existingOperations.filter(
+        (op) => op.type === type && (op.originalId === recordId || op.data._id === recordId),
+      )
+
+      for (const op of relatedOperations) {
+        await offlineDB.removeQueuedOperation(op.id)
+        console.log(`Removed queued operation for server-deleted record: ${recordId}`)
+      }
+
+      console.log(`Successfully marked ${type} record as deleted locally: ${recordId}`)
+    } catch (error) {
+      console.error(`Failed to mark ${type} record as deleted locally:`, error)
+    }
   }
 
   private async consolidatePendingOperations(
@@ -125,6 +207,45 @@ export class SyncManager {
     newData: any,
   ) {
     try {
+      // Check if record is already marked as server-deleted
+      const storeName = this.getStoreName(type)
+      try {
+        const existingRecord = await offlineDB.getRecord(storeName, recordId)
+        if (existingRecord && existingRecord.data._serverDeleted) {
+          console.log(`Skipping operation for server-deleted record: ${recordId}`)
+          return
+        }
+      } catch (error) {
+        // Record doesn't exist, continue with consolidation
+        console.warn(`No existing record found for ${type} ${recordId}, proceeding with consolidation`, error)
+      }
+
+      // Rest of the existing consolidation logic...
+      // Check pending batch first
+      const batchKey = `${type}_${recordId}`
+      const pendingOp = this.pendingBatch.get(batchKey)
+
+      if (pendingOp) {
+        // Just update the pending batch operation
+        if (newOperation === "delete") {
+          // Delete takes precedence
+          pendingOp.operation = "delete"
+          pendingOp.data = newData
+        } else if (pendingOp.operation === "create" && newOperation === "update") {
+          // Keep as create but update data
+          pendingOp.data = { ...pendingOp.data, ...newData }
+        } else {
+          // Update the operation
+          pendingOp.operation = newOperation
+          pendingOp.data = newData
+          pendingOp.timestamp = Date.now()
+        }
+
+        this.pendingBatch.set(batchKey, pendingOp)
+        return
+      }
+
+      // Check queued operations
       const existingOperations = await offlineDB.getQueuedOperations()
 
       // Find operations for the same record
@@ -162,7 +283,7 @@ export class SyncManager {
         finalData = newData
       }
 
-      // Queue the consolidated operation
+      // Add to pending batch instead of immediately queueing
       const consolidatedId = `${type}_${finalOperation}_${Date.now()}_consolidated`
       const consolidatedOp: QueuedOperation = {
         id: consolidatedId,
@@ -174,11 +295,34 @@ export class SyncManager {
         originalId: recordId,
       }
 
-      await offlineDB.addQueuedOperation(consolidatedOp)
+      this.pendingBatch.set(`${type}_${recordId}`, consolidatedOp)
       console.log("Consolidated operation created:", consolidatedOp)
     } catch (error) {
       console.error("Failed to consolidate operations:", error)
     }
+  }
+
+  private scheduleBatchSync() {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout)
+    }
+
+    this.batchTimeout = setTimeout(async () => {
+      if (this.pendingBatch.size > 0) {
+        // Move batched operations to queue
+        for (const operation of Array.from(this.pendingBatch.values())) {
+          await offlineDB.addQueuedOperation(operation)
+        }
+
+        console.log(`Batched ${this.pendingBatch.size} operations`)
+        this.pendingBatch.clear()
+
+        // Trigger sync if online
+        if (this.isOnline) {
+          this.triggerSync()
+        }
+      }
+    }, this.BATCH_DELAY)
   }
 
   private async updateLocalRecord(
@@ -190,12 +334,37 @@ export class SyncManager {
     const storeName = this.getStoreName(type)
 
     if (operation === "delete") {
-      // For delete operations, remove from local storage
+      // For delete operations, mark as deleted instead of removing immediately
       try {
-        await offlineDB.deleteRecord(storeName, data._id)
+        console.log(`Marking ${type} record as deleted locally:`, data._id)
+
+        // Create a deleted record marker
+        const deletedRecord: OfflineRecord = {
+          id: data._id,
+          type,
+          data: {
+            ...data,
+            _deleted: true,
+            _localId: queueId,
+          },
+          timestamp: Date.now(),
+          synced: false,
+          operation: "delete",
+          localId: queueId,
+        }
+
+        await offlineDB.addRecord(storeName, deletedRecord)
+
+        // Also remove any pending batch operations for this record
+        const batchKey = `${type}_${data._id}`
+        if (this.pendingBatch.has(batchKey)) {
+          this.pendingBatch.delete(batchKey)
+          console.log(`Removed pending batch operation for deleted record: ${data._id}`)
+        }
+
+        console.log(`Successfully marked ${type} record as deleted locally: ${data._id}`)
       } catch (error) {
-        console.warn(`Failed to delete ${type} record locally:`, error)
-        // Record might not exist locally, which is fine
+        console.error(`Failed to mark ${type} record as deleted locally:`, error)
       }
       return
     }
@@ -224,7 +393,7 @@ export class SyncManager {
         record.data = { ...existingRecord.data, ...data, _offline: true }
       }
     } catch (error) {
-        console.warn(`Failed to get existing ${type} record locally:`, error)
+      console.warn(`Failed to get existing ${type} record locally:`, error)
       // Record doesn't exist, will create new one
     }
 
@@ -242,6 +411,12 @@ export class SyncManager {
       records.forEach((record) => {
         const id = record.data._id
         const existing = recordMap.get(id)
+
+        // Skip deleted records
+        if (record.data._deleted) {
+          recordMap.delete(id) // Remove from map if it exists
+          return
+        }
 
         if (!existing || record.timestamp > existing._timestamp) {
           recordMap.set(id, {
@@ -275,6 +450,7 @@ export class SyncManager {
       // Get existing unsynced records to preserve them
       const existingRecords = await offlineDB.getRecords(storeName, false) // Get unsynced records
       const unsyncedRecords = existingRecords.filter((record) => !record.synced)
+      const deletedRecords = unsyncedRecords.filter((record) => record.operation === "delete")
 
       // Clear existing synced records
       const syncedRecords = await offlineDB.getRecords(storeName, true)
@@ -282,8 +458,16 @@ export class SyncManager {
         await offlineDB.deleteRecord(storeName, record.id)
       }
 
-      // Add new server data
+      // Add new server data, but skip records that are marked as deleted locally
+      const deletedIds = new Set(deletedRecords.map((record) => record.data._id))
+
       for (const item of data) {
+        // Skip if this record is marked as deleted locally
+        if (deletedIds.has(item._id)) {
+          console.log(`Skipping server data for locally deleted record: ${item._id}`)
+          continue
+        }
+
         const record: OfflineRecord = {
           id: item._id,
           type,
@@ -292,11 +476,6 @@ export class SyncManager {
           synced: true,
           operation: "create",
         }
-        await offlineDB.addRecord(storeName, record)
-      }
-
-      // Re-add unsynced records (they take precedence for UI)
-      for (const record of unsyncedRecords) {
         await offlineDB.addRecord(storeName, record)
       }
 
@@ -333,7 +512,12 @@ export class SyncManager {
       await this.syncQueuedOperations()
       console.log("Sync completed successfully")
       this.notifySyncComplete()
-      toast.success("Data synced successfully")
+
+      // Only show success toast for manual syncs or if there were operations
+      const pendingCount = await this.getPendingOperationsCount()
+      if (pendingCount === 0) {
+        toast.success("Data synced successfully")
+      }
     } catch (error) {
       console.error("Sync failed:", error)
       toast.error("Sync failed - will retry automatically")
@@ -346,42 +530,82 @@ export class SyncManager {
     const operations = await offlineDB.getQueuedOperations()
     console.log(`Syncing ${operations.length} operations`)
 
-    // Group operations by record ID to handle them in order
-    const operationGroups = new Map<string, QueuedOperation[]>()
+    if (operations.length === 0) return
 
-    operations.forEach((op) => {
-      const key = `${op.type}_${op.originalId || op.data._id}`
-      if (!operationGroups.has(key)) {
-        operationGroups.set(key, [])
-      }
-      operationGroups.get(key)!.push(op)
-    })
+    // Prioritize delete operations - process them first
+    const deleteOperations = operations.filter((op) => op.operation === "delete")
+    const otherOperations = operations.filter((op) => op.operation !== "delete")
 
-    // Process each group of operations - use Array.from() for compatibility
-    for (const [key, groupOps] of Array.from(operationGroups.entries())) {
-      // Sort operations by timestamp to process in order
-      groupOps.sort((a, b) => a.timestamp - b.timestamp)
+    // Process deletes first
+    if (deleteOperations.length > 0) {
+      console.log(`Processing ${deleteOperations.length} delete operations first`)
+      await this.processOperations(deleteOperations)
+    }
 
-      console.log(`Processing ${groupOps.length} operations for ${key}`)
+    // Then process other operations
+    if (otherOperations.length > 0) {
+      console.log(`Processing ${otherOperations.length} other operations`)
 
-      // Process the final operation (latest one)
-      const finalOperation = groupOps[groupOps.length - 1]
+      // Group other operations by type for parallel processing
+      const operationsByType = new Map<string, QueuedOperation[]>()
 
-      try {
-        await this.syncSingleOperation(finalOperation)
-
-        // Remove all operations for this record group
-        for (const op of groupOps) {
-          await offlineDB.removeQueuedOperation(op.id)
+      otherOperations.forEach((op) => {
+        if (!operationsByType.has(op.type)) {
+          operationsByType.set(op.type, [])
         }
+        operationsByType.get(op.type)!.push(op)
+      })
 
-        console.log(`Successfully synced operations for ${key}`)
-      } catch (error) {
-        console.error(`Failed to sync operations for ${key}:`, error)
+      // Process each type in parallel
+      const syncPromises = Array.from(operationsByType.entries()).map(([type, typeOps]) =>
+        this.syncOperationsOfType(type, typeOps),
+      )
 
-        // Handle retry logic for the final operation
-        await this.handleSyncError(finalOperation, error)
-      }
+      await Promise.allSettled(syncPromises)
+    }
+  }
+
+  private async processOperations(operations: QueuedOperation[]) {
+    // Process operations in smaller batches
+    const BATCH_SIZE = 5
+
+    for (let i = 0; i < operations.length; i += BATCH_SIZE) {
+      const batch = operations.slice(i, i + BATCH_SIZE)
+
+      const batchPromises = batch.map(async (operation) => {
+        try {
+          await this.syncSingleOperation(operation)
+          await offlineDB.removeQueuedOperation(operation.id)
+          console.log(`Synced ${operation.type} ${operation.operation}`)
+        } catch (error) {
+          console.error(`Failed to sync ${operation.type}:`, error)
+          await this.handleSyncError(operation, error)
+        }
+      })
+
+      await Promise.allSettled(batchPromises)
+    }
+  }
+
+  private async syncOperationsOfType(type: string, operations: QueuedOperation[]) {
+    // Process operations in smaller batches
+    const BATCH_SIZE = 5
+
+    for (let i = 0; i < operations.length; i += BATCH_SIZE) {
+      const batch = operations.slice(i, i + BATCH_SIZE)
+
+      const batchPromises = batch.map(async (operation) => {
+        try {
+          await this.syncSingleOperation(operation)
+          await offlineDB.removeQueuedOperation(operation.id)
+          console.log(`Synced ${operation.type} ${operation.operation}`)
+        } catch (error) {
+          console.error(`Failed to sync ${operation.type}:`, error)
+          await this.handleSyncError(operation, error)
+        }
+      })
+
+      await Promise.allSettled(batchPromises)
     }
   }
 
@@ -398,11 +622,12 @@ export class SyncManager {
 
     // Increment retry count for server errors
     operation.retryCount++
-    if (operation.retryCount < 5) {
+    if (operation.retryCount < 3) {
+      // Reduced from 5 to 3
       await offlineDB.addQueuedOperation(operation)
 
       // Schedule retry with exponential backoff
-      const retryDelay = Math.min(1000 * Math.pow(2, operation.retryCount), 30000)
+      const retryDelay = Math.min(1000 * Math.pow(2, operation.retryCount), 10000) // Reduced max delay
       const timeoutId = setTimeout(() => {
         this.triggerSync()
         this.retryTimeouts.delete(operation.id)
@@ -450,7 +675,6 @@ export class SyncManager {
           result = await this.syncMenuItemOperation(op, cleanData, isTemporaryId)
           break
 
-          break
         case "user":
           result = await this.syncUserOperation(op, cleanData, isTemporaryId)
           break
@@ -471,45 +695,6 @@ export class SyncManager {
     } catch (error) {
       console.error(`Failed to sync ${op} ${type}:`, error)
       throw error
-    }
-  }
-
-  private async syncMenuItemOperation(
-    operation: "create" | "update" | "delete",
-    cleanData: any,
-    isTemporaryId: boolean,
-  ) {
-    // Import server actions dynamically to avoid issues
-    const { createMenuItem, updateMenuItem, deleteMenuItem } = await import("@/app/actions/menu-items")
-
-    switch (operation) {
-      case "create":
-        if (isTemporaryId) {
-          delete cleanData._id
-        }
-        console.log(`Creating menu item via server action:`, cleanData)
-        return await createMenuItem(cleanData)
-
-      case "update":
-        if (isTemporaryId) {
-          delete cleanData._id
-          console.log(`Creating menu item (was temp update) via server action:`, cleanData)
-          return await createMenuItem(cleanData)
-        } else {
-          console.log(`Updating menu item via server action:`, cleanData._id, cleanData)
-          return await updateMenuItem(cleanData._id, cleanData)
-        }
-
-      case "delete":
-        if (isTemporaryId) {
-          console.log(`Skipping delete of temporary menu item: ${cleanData._id}`)
-          return { success: true }
-        }
-        console.log(`Deleting menu item via server action:`, cleanData._id)
-        return await deleteMenuItem(cleanData._id)
-
-      default:
-        throw new Error(`Unknown operation: ${operation}`)
     }
   }
 
@@ -634,6 +819,45 @@ export class SyncManager {
     }
   }
 
+  private async syncMenuItemOperation(
+    operation: "create" | "update" | "delete",
+    cleanData: any,
+    isTemporaryId: boolean,
+  ) {
+    // Import server actions dynamically to avoid issues
+    const { createMenuItem, updateMenuItem, deleteMenuItem } = await import("@/app/actions/menu-items")
+
+    switch (operation) {
+      case "create":
+        if (isTemporaryId) {
+          delete cleanData._id
+        }
+        console.log(`Creating menu item via server action:`, cleanData)
+        return await createMenuItem(cleanData)
+
+      case "update":
+        if (isTemporaryId) {
+          delete cleanData._id
+          console.log(`Creating menu item (was temp update) via server action:`, cleanData)
+          return await createMenuItem(cleanData)
+        } else {
+          console.log(`Updating menu item via server action:`, cleanData._id, cleanData)
+          return await updateMenuItem(cleanData._id, cleanData)
+        }
+
+      case "delete":
+        if (isTemporaryId) {
+          console.log(`Skipping delete of temporary menu item: ${cleanData._id}`)
+          return { success: true }
+        }
+        console.log(`Deleting menu item via server action:`, cleanData._id)
+        return await deleteMenuItem(cleanData._id)
+
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
+    }
+  }
+
   private async syncUserOperation(operation: "create" | "update" | "delete", cleanData: any, isTemporaryId: boolean) {
     // For users, we'll still use fetch since we don't have server actions for them yet
     let endpoint = "/api/users"
@@ -704,8 +928,9 @@ export class SyncManager {
     const storeName = this.getStoreName(type)
 
     if (operation === "delete") {
-      // Remove the record from local storage
+      // Remove the record from local storage completely after successful server sync
       await offlineDB.deleteRecord(storeName, originalData._id)
+      console.log(`Permanently removed ${type} record after successful server sync: ${originalData._id}`)
       return
     }
 
@@ -775,8 +1000,8 @@ export class SyncManager {
       await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("menuItems")
       await offlineDB.clearStore("queuedOperations")
-      await offlineDB.clearStore("dueAccounts")
       await offlineDB.clearStore("apiCache")
+      this.pendingBatch.clear()
       console.log("Local data cleared")
       toast.success("Local data cleared")
     } catch (error) {
@@ -796,7 +1021,7 @@ export class SyncManager {
   async getPendingOperationsCount(): Promise<number> {
     try {
       const operations = await offlineDB.getQueuedOperations()
-      return operations.length
+      return operations.length + this.pendingBatch.size
     } catch (error) {
       console.error("Failed to get pending operations count:", error)
       return 0

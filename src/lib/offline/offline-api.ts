@@ -1,4 +1,3 @@
-import { getDashboardStats } from "@/app/actions/dashboard"
 import { syncManager } from "./sync-manager"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { offlineDB } from "./indexeddb"
@@ -12,31 +11,53 @@ export class OfflineAPI {
   // Income Records
   static async getIncomeRecords(): Promise<IncomeRecord[]> {
     try {
-      // Try to get from server first if online
+      // Always return local data first for immediate UI response
+      const localRecords = await syncManager.getLocalRecords("income")
+
+      // If online, fetch from server in background
       if (syncManager.getOnlineStatus()) {
-        try {
-          const response = await fetch("/api/income-records")
-          if (response.ok) {
-            const data = await response.json()
-            // Cache the server data
-            await syncManager.cacheServerData("income", data.records || [])
-            return data.records || []
-          }
-        } catch (error) {
-          console.log("Server fetch failed, using local data:", error)
-        }
+        this.backgroundFetchIncomeRecords()
       }
 
-      // Fallback to local data
-      return await syncManager.getLocalRecords("income")
+      return localRecords
     } catch (error) {
       console.error("Failed to get income records:", error)
       return []
     }
   }
 
+  // Background fetch to update local cache without blocking UI
+  private static async backgroundFetchIncomeRecords() {
+    try {
+      const response = await fetch("/api/income-records")
+      if (response.ok) {
+        const data = await response.json()
+        await syncManager.cacheServerData("income", data.records || [])
+      }
+    } catch (error) {
+      // Silent fail for background fetch
+      console.error("Background fetch failed for income records:", error)
+    }
+  }
+
   static async createIncomeRecord(data: Partial<IncomeRecord>): Promise<{ success: boolean; record?: IncomeRecord }> {
     try {
+      // If online, try server first for immediate consistency
+      if (navigator.onLine) {
+        try {
+          const { createIncomeRecord } = await import("@/app/actions/income-records")
+          const result = await createIncomeRecord(data as any)
+
+          if (result.success) {
+            // Cache the server result locally
+            await syncManager.cacheServerData("income", [result.record])
+            return result
+          }
+        } catch (error) {
+          console.log("Server call failed, falling back to offline mode:", error)
+        }
+      }
+
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const recordData = {
         ...data,
@@ -62,6 +83,21 @@ export class OfflineAPI {
     data: Partial<IncomeRecord>,
   ): Promise<{ success: boolean; record?: IncomeRecord }> {
     try {
+      // If online, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          const { updateIncomeRecord } = await import("@/app/actions/income-records")
+          const result = await updateIncomeRecord(id, data as any)
+
+          if (result.success) {
+            await syncManager.cacheServerData("income", [result.record])
+            return result
+          }
+        } catch (error) {
+          console.log("Server update failed, falling back to offline mode:", error)
+        }
+      }
+
       const recordData = {
         ...data,
         _id: id,
@@ -82,6 +118,25 @@ export class OfflineAPI {
 
   static async deleteIncomeRecord(id: string): Promise<{ success: boolean }> {
     try {
+      console.log(`Deleting income record: ${id}`)
+
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          const { deleteIncomeRecord } = await import("@/app/actions/income-records")
+          const result = await deleteIncomeRecord(id)
+
+          if (result.success) {
+            // Server delete succeeded - mark as deleted locally but don't queue for sync
+            await syncManager.markRecordAsDeleted("income", id)
+            return { success: true }
+          }
+        } catch (error) {
+          console.log("Server delete failed, falling back to offline mode:", error)
+        }
+      }
+
+      // Queue for offline sync only if server delete failed or we're offline
       await syncManager.queueOperation("income", "delete", { _id: id }, id)
       return { success: true }
     } catch (error) {
@@ -90,29 +145,34 @@ export class OfflineAPI {
     }
   }
 
-  // Expense Records
+  // Expense Records - similar optimizations
   static async getExpenseRecords(): Promise<ExpenseRecord[]> {
     try {
-      // Try to get from server first if online
+      // Always return local data first
+      const localRecords = await syncManager.getLocalRecords("expense")
+
+      // If online, fetch from server in background
       if (syncManager.getOnlineStatus()) {
-        try {
-          const response = await fetch("/api/expense-records")
-          if (response.ok) {
-            const data = await response.json()
-            // Cache the server data
-            await syncManager.cacheServerData("expense", data.records || [])
-            return data.records || []
-          }
-        } catch (error) {
-          console.log("Server fetch failed, using local data:", error)
-        }
+        this.backgroundFetchExpenseRecords()
       }
 
-      // Fallback to local data
-      return await syncManager.getLocalRecords("expense")
+      return localRecords
     } catch (error) {
       console.error("Failed to get expense records:", error)
       return []
+    }
+  }
+
+  private static async backgroundFetchExpenseRecords() {
+    try {
+      const response = await fetch("/api/expense-records")
+      if (response.ok) {
+        const data = await response.json()
+        await syncManager.cacheServerData("expense", data.records || [])
+      }
+    } catch (error) {
+      // Silent fail for background fetch
+      console.error("Background fetch failed for expense records:", error)
     }
   }
 
@@ -120,6 +180,21 @@ export class OfflineAPI {
     data: Partial<ExpenseRecord>,
   ): Promise<{ success: boolean; record?: ExpenseRecord }> {
     try {
+      // If online, try server first
+      if (navigator.onLine) {
+        try {
+          const { createExpenseRecord } = await import("@/app/actions/expense-records")
+          const result = await createExpenseRecord(data as any)
+
+          if (result.success) {
+            await syncManager.cacheServerData("expense", [result.record])
+            return result
+          }
+        } catch (error) {
+          console.log("Server call failed, falling back to offline mode:", error)
+        }
+      }
+
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const recordData = {
         ...data,
@@ -145,6 +220,21 @@ export class OfflineAPI {
     data: Partial<ExpenseRecord>,
   ): Promise<{ success: boolean; record?: ExpenseRecord }> {
     try {
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          const { updateExpenseRecord } = await import("@/app/actions/expense-records")
+          const result = await updateExpenseRecord(id, data as any)
+
+          if (result.success) {
+            await syncManager.cacheServerData("expense", [result.record])
+            return result
+          }
+        } catch (error) {
+          console.log("Server update failed, falling back to offline mode:", error)
+        }
+      }
+
       const recordData = {
         ...data,
         _id: id,
@@ -165,6 +255,22 @@ export class OfflineAPI {
 
   static async deleteExpenseRecord(id: string): Promise<{ success: boolean }> {
     try {
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          const { deleteExpenseRecord } = await import("@/app/actions/expense-records")
+          const result = await deleteExpenseRecord(id)
+          if (result.success) {
+            // Server delete succeeded - mark as deleted locally but don't queue for sync
+            await syncManager.markRecordAsDeleted("expense", id)
+            return { success: true }
+          }
+        } catch (error) {
+          console.log("Server delete failed, falling back to offline mode:", error)
+        }
+      }
+
+      // Queue for offline sync only if server delete failed or we're offline
       await syncManager.queueOperation("expense", "delete", { _id: id }, id)
       return { success: true }
     } catch (error) {
@@ -176,23 +282,14 @@ export class OfflineAPI {
   // Due Accounts
   static async getDueAccounts(): Promise<any[]> {
     try {
-      // Try to get fresh data from server if online
+      // Always return local data first
+      const localRecords = await syncManager.getLocalRecords("dueAccount")
+
+      // If online, fetch from server in background
       if (navigator.onLine) {
-        try {
-          const response = await fetch("/api/due-accounts")
-          if (response.ok) {
-            const serverData = await response.json()
-            // Cache the server data
-            await syncManager.cacheServerData("dueAccount", serverData.accounts || [])
-            return serverData.accounts || []
-          }
-        } catch (error) {
-          console.warn("Failed to fetch from server, using local data:", error)
-        }
+        this.backgroundFetchDueAccounts()
       }
 
-      // Fallback to local data
-      const localRecords = await syncManager.getLocalRecords("dueAccount")
       return localRecords
     } catch (error) {
       console.error("Failed to get due accounts:", error)
@@ -200,8 +297,34 @@ export class OfflineAPI {
     }
   }
 
+  private static async backgroundFetchDueAccounts() {
+    try {
+      const response = await fetch("/api/due-accounts")
+      if (response.ok) {
+        const data = await response.json()
+        await syncManager.cacheServerData("dueAccount", data.accounts || [])
+      }
+    } catch (error) {
+      // Silent fail for background fetch
+      console.error("Background fetch failed for due accounts:", error)
+    }
+  }
+
   static async createDueAccount(data: any): Promise<{ success: boolean; record?: any }> {
     try {
+      // If online, try server first
+      if (navigator.onLine) {
+        try {
+          const result = await createDueAccount(data)
+          if (result.record) {
+            await syncManager.cacheServerData("dueAccount", [result.record])
+            return { success: true, record: result.record }
+          }
+        } catch (error) {
+          console.log("Server call failed, falling back to offline mode:", error)
+        }
+      }
+
       // Generate a temporary ID for offline use
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const recordData = {
@@ -211,18 +334,8 @@ export class OfflineAPI {
         updatedAt: new Date().toISOString(),
       }
 
-      if (navigator.onLine) {
-        const result = await createDueAccount(recordData)
-        if (result.record) {
-          await syncManager.cacheServerData("dueAccount", [result.record])
-          return { success: true, record: result.record }
-        }
-        return { success: false }
-      }
-
       // Queue for offline sync and update local cache immediately
       await syncManager.queueOperation("dueAccount", "create", recordData)
-      await this.updateLocalDueAccountCache("create", recordData)
       return { success: true, record: recordData }
     } catch (error) {
       console.error("Failed to create due account:", error)
@@ -232,24 +345,27 @@ export class OfflineAPI {
 
   static async updateDueAccount(id: string, data: any): Promise<{ success: boolean; record?: any }> {
     try {
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          const result = await updateDueAccount(id, data)
+          if (result.record) {
+            await syncManager.cacheServerData("dueAccount", [result.record])
+            return { success: true, record: result.record }
+          }
+        } catch (error) {
+          console.log("Server update failed, falling back to offline mode:", error)
+        }
+      }
+
       const recordData = {
         ...data,
         _id: id,
         updatedAt: new Date().toISOString(),
       }
 
-      if (navigator.onLine) {
-        const result = await updateDueAccount(id, recordData)
-        if (result.record) {
-          await syncManager.cacheServerData("dueAccount", [result.record])
-          return { success: true, record: result.record }
-        }
-        return { success: false }
-      }
-
-      // Queue for offline sync and update local cache immediately
+      // Queue for offline sync
       await syncManager.queueOperation("dueAccount", "update", recordData, id)
-      await this.updateLocalDueAccountCache("update", recordData)
       return { success: true, record: recordData }
     } catch (error) {
       console.error("Failed to update due account:", error)
@@ -259,14 +375,18 @@ export class OfflineAPI {
 
   static async deleteDueAccount(id: string): Promise<{ success: boolean }> {
     try {
-      if (navigator.onLine) {
-        await deleteDueAccount(id)
-        return { success: true }
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          await deleteDueAccount(id)
+          return { success: true }
+        } catch (error) {
+          console.log("Server delete failed, falling back to offline mode:", error)
+        }
       }
 
-      // Queue for offline sync and update local cache immediately
+      // Queue for offline sync
       await syncManager.queueOperation("dueAccount", "delete", { _id: id }, id)
-      await this.updateLocalDueAccountCache("delete", { _id: id })
       return { success: true }
     } catch (error) {
       console.error("Failed to delete due account:", error)
@@ -274,28 +394,135 @@ export class OfflineAPI {
     }
   }
 
-  // Helper method to update local due account cache
-  private static async updateLocalDueAccountCache(operation: "create" | "update" | "delete", record: any) {
+  // Menu Items - similar optimizations
+  static async getMenuItems(category?: string, availableOnly?: boolean): Promise<any[]> {
     try {
-      const storeName = "dueAccounts"
+      // Always return local data first
+      const localItems = await syncManager.getLocalRecords("menuItem")
 
-      if (operation === "delete") {
-        await offlineDB.deleteRecord(storeName, record._id)
-      } else {
-        const offlineRecord = {
-          id: record._id,
-          type: "dueAccount" as const,
-          data: record,
-          timestamp: Date.now(),
-          synced: navigator.onLine, // Mark as synced if we're online
-          operation,
-        }
-        await offlineDB.addRecord(storeName, offlineRecord)
+      // Filter locally
+      let filteredItems = localItems
+      if (category) {
+        filteredItems = filteredItems.filter((item) => item.category === category)
+      }
+      if (availableOnly) {
+        filteredItems = filteredItems.filter((item) => item.isAvailable)
       }
 
-      console.log(`Local due account cache updated: ${operation} for record ${record._id}`)
+      // If online, fetch from server in background
+      if (navigator.onLine) {
+        this.backgroundFetchMenuItems(category, availableOnly)
+      }
+
+      return filteredItems
     } catch (error) {
-      console.error("Failed to update local due account cache:", error)
+      console.error("Failed to get menu items:", error)
+      return []
+    }
+  }
+
+  private static async backgroundFetchMenuItems(category?: string, availableOnly?: boolean) {
+    try {
+      const params = new URLSearchParams()
+      if (category) params.append("category", category)
+      if (availableOnly) params.append("available", "true")
+
+      const response = await fetch(`/api/menu-items?${params.toString()}`)
+      if (response.ok) {
+        const data = await response.json()
+        await syncManager.cacheServerData("menuItem", data.menuItems || [])
+      }
+    } catch (error) {
+      // Silent fail for background fetch
+      console.error("Background fetch failed for menu items:", error)
+    }
+  }
+
+  static async createMenuItem(data: any): Promise<{ success: boolean; record?: any }> {
+    try {
+      // If online, try server first
+      if (navigator.onLine) {
+        try {
+          const result = await createMenuItem(data)
+          if (result.record) {
+            await syncManager.cacheServerData("menuItem", [result.record])
+            return { success: true, record: result.record }
+          }
+        } catch (error) {
+          console.log("Server call failed, falling back to offline mode:", error)
+        }
+      }
+
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const recordData = {
+        ...data,
+        _id: tempId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      await syncManager.queueOperation("menuItem", "create", recordData)
+
+      return {
+        success: true,
+        record: recordData,
+      }
+    } catch (error) {
+      console.error("Failed to create menu item:", error)
+      return { success: false }
+    }
+  }
+
+  static async updateMenuItem(id: string, data: any): Promise<{ success: boolean; record?: any }> {
+    try {
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          const result = await updateMenuItem(id, data)
+          if (result.record) {
+            await syncManager.cacheServerData("menuItem", [result.record])
+            return { success: true, record: result.record }
+          }
+        } catch (error) {
+          console.log("Server update failed, falling back to offline mode:", error)
+        }
+      }
+
+      const recordData = {
+        ...data,
+        _id: id,
+        updatedAt: new Date(),
+      }
+
+      await syncManager.queueOperation("menuItem", "update", recordData, id)
+
+      return {
+        success: true,
+        record: recordData,
+      }
+    } catch (error) {
+      console.error("Failed to update menu item:", error)
+      return { success: false }
+    }
+  }
+
+  static async deleteMenuItem(id: string): Promise<{ success: boolean }> {
+    try {
+      // If online and not a temporary ID, try server first
+      if (navigator.onLine && !id.startsWith("temp_")) {
+        try {
+          await deleteMenuItem(id)
+          return { success: true }
+        } catch (error) {
+          console.log("Server delete failed, falling back to offline mode:", error)
+        }
+      }
+
+      await syncManager.queueOperation("menuItem", "delete", { _id: id }, id)
+      return { success: true }
+    } catch (error) {
+      console.error("Failed to delete menu item:", error)
+      return { success: false }
     }
   }
 
@@ -306,24 +533,27 @@ export class OfflineAPI {
       const cacheKey = `/api/dashboard?filter=${dateFilter}`
       const cachedData = await offlineDB.getCachedApiResponse(cacheKey)
 
-      if (cachedData && navigator.onLine) {
-        // Return cached data but fetch fresh data in background
-        this.fetchDashboardStatsBackground(dateFilter)
-        return cachedData
-      }
-
       if (cachedData) {
+        // Return cached data immediately
+        // If online, fetch fresh data in background
+        if (navigator.onLine) {
+          this.backgroundFetchDashboardStats(dateFilter)
+        }
         return cachedData
       }
 
       if (navigator.onLine) {
-        console.log("Fetching dashboard stats using server action...")
-        const data = await getDashboardStats(dateFilter)
+        try {
+          const { getDashboardStats } = await import("@/app/actions/dashboard")
+          const data = await getDashboardStats(dateFilter)
 
-        // Cache the response for 5 minutes
-        await offlineDB.cacheApiResponse(cacheKey, data, 5)
+          // Cache the response for 5 minutes
+          await offlineDB.cacheApiResponse(cacheKey, data, 5)
 
-        return data
+          return data
+        } catch (error) {
+          console.error("Failed to fetch dashboard stats:", error)
+        }
       }
 
       // Fallback: calculate from local data
@@ -334,14 +564,15 @@ export class OfflineAPI {
     }
   }
 
-  private static async fetchDashboardStatsBackground(dateFilter: string) {
+  private static async backgroundFetchDashboardStats(dateFilter: string) {
     try {
+      const { getDashboardStats } = await import("@/app/actions/dashboard")
       const data = await getDashboardStats(dateFilter)
       const cacheKey = `/api/dashboard?filter=${dateFilter}`
       await offlineDB.cacheApiResponse(cacheKey, data, 5)
     } catch (error) {
-        console.error("Failed to fetch dashboard stats in background:", error)
       // Silent fail for background fetch
+      console.error("Background fetch failed for dashboard stats:", error)
     }
   }
 
@@ -396,112 +627,6 @@ export class OfflineAPI {
         pendingPaymentsCount: 0,
         _fromCache: true,
       }
-    }
-  }
-
-  // Menu Items
-  static async getMenuItems(category?: string, availableOnly?: boolean): Promise<any[]> {
-    try {
-      // Try to get from server first if online
-      if (syncManager.getOnlineStatus()) {
-        try {
-          const params = new URLSearchParams()
-          if (category) params.append("category", category)
-          if (availableOnly) params.append("available", "true")
-
-          const response = await fetch(`/api/menu-items?${params.toString()}`)
-          if (response.ok) {
-            const data = await response.json()
-            // Cache the server data
-            await syncManager.cacheServerData("menuItem", data.menuItems || [])
-            return data.menuItems || []
-          }
-        } catch (error) {
-          console.log("Server fetch failed, using local data:", error)
-        }
-      }
-
-      // Fallback to local data
-      const localItems = await syncManager.getLocalRecords("menuItem")
-
-      return localItems
-    } catch (error) {
-      console.error("Failed to get menu items:", error)
-      return []
-    }
-  }
-
-  static async createMenuItem(data: any): Promise<{ success: boolean; record?: any }> {
-    try {
-      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      const recordData = {
-        ...data,
-        _id: tempId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      if (navigator.onLine) {
-        const result = await createMenuItem(recordData)
-        if (result.record) {
-          await syncManager.cacheServerData("menuItem", [result.record])
-          return { success: true, record: result.record }
-        }
-        return { success: false }
-      }
-
-      await syncManager.queueOperation("menuItem", "create", recordData)
-
-      return {
-        success: true,
-        record: recordData,
-      }
-    } catch (error) {
-      console.error("Failed to create menu item:", error)
-      return { success: false }
-    }
-  }
-
-  static async updateMenuItem(id: string, data: any): Promise<{ success: boolean; record?: any }> {
-    try {
-      const recordData = {
-        ...data,
-        _id: id,
-        updatedAt: new Date(),
-      }
-
-      if (navigator.onLine) {
-        const result = await updateMenuItem(id, recordData)
-        if (result.record) {
-          await syncManager.cacheServerData("menuItem", [result.record])
-          return { success: true, record: result.record }
-        }
-        return { success: false }
-      }
-
-      await syncManager.queueOperation("menuItem", "update", recordData, id)
-
-      return {
-        success: true,
-        record: recordData,
-      }
-    } catch (error) {
-      console.error("Failed to update menu item:", error)
-      return { success: false }
-    }
-  }
-
-  static async deleteMenuItem(id: string): Promise<{ success: boolean }> {
-    try {
-        if (navigator.onLine) {
-        await deleteMenuItem(id)
-        return { success: false }
-      }
-      await syncManager.queueOperation("menuItem", "delete", { _id: id }, id)
-      return { success: true }
-    } catch (error) {
-      console.error("Failed to delete menu item:", error)
-      return { success: false }
     }
   }
 

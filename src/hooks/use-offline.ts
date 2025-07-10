@@ -19,14 +19,12 @@ export function useOffline() {
   const testConnectivity = useCallback(async (): Promise<boolean> => {
     // Prevent multiple simultaneous checks
     if (isCheckingRef.current) {
-      console.log("Connectivity check already in progress, skipping...")
       return isOnline
     }
 
-    // Debounce: Don't check more than once every 5 seconds
+    // Debounce: Don't check more than once every 10 seconds (increased from 5)
     const now = Date.now()
-    if (now - lastCheckTimeRef.current < 5000) {
-      console.log("Connectivity check debounced, using cached result...")
+    if (now - lastCheckTimeRef.current < 10000) {
       return isOnline
     }
 
@@ -39,7 +37,6 @@ export function useOffline() {
 
     try {
       setIsCheckingConnectivity(true)
-      console.log("Testing actual internet connectivity...")
 
       // Test our own API first (fastest and most reliable for our app)
       const controller = new AbortController()
@@ -54,12 +51,11 @@ export function useOffline() {
         clearTimeout(timeoutId)
 
         if (response.ok) {
-          console.log("Health check passed - internet is available")
           return true
         }
       } catch (error) {
         clearTimeout(timeoutId)
-        console.log("Health check failed, trying external endpoint...", error)
+        console.error("API health check failed:", error)
       }
 
       // If our API fails, try one external endpoint
@@ -74,14 +70,13 @@ export function useOffline() {
           signal: controller2.signal,
         })
         clearTimeout(timeoutId2)
-        console.log("External connectivity test passed")
         return true
       } catch (error) {
-        console.log("External connectivity test failed", error)
+        console.error("External connectivity check failed:", error)
         return false
       }
     } catch (error) {
-      console.error("Connectivity test failed:", error)
+      console.error("Connectivity check error:", error)
       return false
     } finally {
       setIsCheckingConnectivity(false)
@@ -121,7 +116,6 @@ export function useOffline() {
 
     // Network change listeners
     const handleOnline = () => {
-      console.log("Network connected, testing actual connectivity...")
       // Clear any existing timeout
       if (connectivityCheckRef.current) {
         clearTimeout(connectivityCheckRef.current)
@@ -133,7 +127,6 @@ export function useOffline() {
     }
 
     const handleOffline = () => {
-      console.log("Network disconnected")
       setIsOnline(false)
       setIsCheckingConnectivity(false)
       // Clear any pending connectivity checks
@@ -160,14 +153,14 @@ export function useOffline() {
           updateOnlineStatus()
         }
       },
-      isOnline ? 60000 : 30000,
-    ) // 1 minute when online, 30 seconds when offline
+      isOnline ? 120000 : 60000, // 2 minutes when online, 1 minute when offline (increased from 60s/30s)
+    )
 
     // Check pending operations periodically
     const operationsInterval = setInterval(() => {
       updatePendingOperations()
       updateSyncStatus()
-    }, 5000) // Every 5 seconds instead of 2
+    }, 10000) // Every 10 seconds instead of 5
 
     return () => {
       window.removeEventListener("online", handleOnline)
