@@ -32,7 +32,7 @@ const menuItems = [
   { name: "Black Tea", price: 25 },
   { name: "Lemon Tea", price: 25 },
   { name: "Lassi Half", price: 50 },
-  { name: "Alu Chop", price: 60 },
+  { name: "Alu Chop", price: 80 },
   { name: "Wai Wai Sadheako", price: 60 },
   { name: "Coke/Fanta/Sprite", price: 80 },
   { name: "Lassi Full", price: 100 },

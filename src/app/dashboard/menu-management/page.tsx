@@ -17,6 +17,7 @@ import { MenuItem } from "@/types"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Navbar } from "@/components/layout/navbar"
+import Image from "next/image"
 
 const categories = ["Appetizers", "Beverages", "Main", "Snacks", "Others"]
 
@@ -346,7 +347,7 @@ export default function MenuManagement() {
             </CardHeader>
             <CardContent>
               {item.image && (
-                <img
+                <Image
                   src={item.image || "/placeholder.svg"}
                   alt={item.name}
                   className="w-full h-32 object-cover rounded-md mb-3"
