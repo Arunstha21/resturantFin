@@ -22,7 +22,16 @@ export async function GET(
     })
       .sort({ date: -1 })
 
-    const totalDueAmount = pendingOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+    const totalDueAmount = pendingOrders.reduce((sum, order) => {
+      if (order.paymentMethod === "split") {
+        const cash = order.cashAmount ?? 0;
+        const digital = order.digitalAmount ?? 0;
+        const remainingAmount = order.totalAmount - (cash + digital);
+        return sum + remainingAmount;
+      } else {
+        return sum + order.totalAmount;
+      }
+    }, 0);
 
     // Return only necessary information for public view
     return NextResponse.json({
@@ -35,7 +44,7 @@ export async function GET(
         orders: pendingOrders.map((order) => ({
           _id: order._id.toString(),
           date: order.date,
-          totalAmount: order.totalAmount,
+          totalAmount: order.paymentMethod === "split" ? order.totalAmount - (order.cashAmount + order.digitalAmount) : order.totalAmount,
           items: order.items,
           tableNumber: order.tableNumber,
           notes: order.notes,

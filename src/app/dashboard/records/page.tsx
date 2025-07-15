@@ -136,7 +136,17 @@ export default function RecordsPage() {
           return new Date(b.date).getTime() - new Date(a.date).getTime()
         })
 
-        const totalAmount = sortedOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+        const totalAmount = sortedOrders.reduce((sum, order) => {
+          if (order.paymentMethod === "split") {
+            const cash = order.cashAmount ?? 0;
+            const digital = order.digitalAmount ?? 0;
+            const remainingAmount = order.totalAmount - (cash + digital);
+            return sum + remainingAmount;
+          } else {
+            return sum + order.totalAmount;
+          }
+        }, 0);
+
         const pendingOrders = sortedOrders.filter((order) => order.paymentStatus === "pending")
 
         const groupRecord: GroupedIncomeRecord = {
@@ -444,12 +454,24 @@ export default function RecordsPage() {
           </Button>
         ),
         cell: ({ getValue, row }) => {
+          let currentAmount
           const amount = getValue() as number
+          if(row.original.paymentMethod === "split") {
+            const cashAmount = row.original.cashAmount || 0
+            const digitalAmount = row.original.digitalAmount || 0
+
+            if(cashAmount > 0 || digitalAmount > 0) {
+              currentAmount = amount - (cashAmount + digitalAmount)
+            }
+            currentAmount = currentAmount || amount
+          }else {
+            currentAmount = amount
+          }
           const record = row.original
 
           return (
             <div className={`font-medium ${record.isGroup ? "text-red-800 font-semibold" : "text-green-600"}`}>
-              {formatCurrency(amount)}
+              {formatCurrency(currentAmount)}
             </div>
           )
         },

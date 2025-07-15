@@ -31,10 +31,11 @@ export async function GET() {
           return {
             ...order,
             _id: order._id.toString(),
+            totalAmount: order.paymentMethod === "split" ? order.totalAmount - (order.cashAmount + order.digitalAmount) : order.totalAmount,
           }
         })
 
-        const totalDueAmount = pendingOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+        const totalDueAmount = pendingOrders.reduce((sum, order) => sum + order.totalAmount, 0);
 
         return {
           ...account,
