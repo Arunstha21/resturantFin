@@ -18,7 +18,6 @@ export class SyncManager {
   private async initializeDB() {
     try {
       await offlineDB.init()
-      console.log("Sync Manager: Database initialized")
 
       // Try to sync any pending operations on startup (with delay)
       if (this.isOnline) {
@@ -72,7 +71,6 @@ export class SyncManager {
     this.onlineStatusUpdateTimeout = setTimeout(() => {
       // If we just came back online, trigger sync
       if (!wasOnline && online) {
-        console.log("Internet connectivity restored - triggering sync...")
         toast.success("Connection restored - syncing data...")
         setTimeout(() => this.triggerSync(), 2000)
       } else if (wasOnline && !online) {
@@ -105,7 +103,6 @@ export class SyncManager {
     }
 
     await offlineDB.addQueuedOperation(queuedOp)
-    console.log("Operation queued:", queuedOp)
 
     // Store/update in local records for immediate UI updates
     await this.updateLocalRecord(type, operation, data, id)
@@ -133,9 +130,6 @@ export class SyncManager {
       )
 
       if (relatedOperations.length === 0) return
-
-      console.log(`Consolidating ${relatedOperations.length} operations for ${type} ${recordId}`)
-
       // Remove all existing operations for this record
       for (const op of relatedOperations) {
         await offlineDB.removeQueuedOperation(op.id)
@@ -175,7 +169,6 @@ export class SyncManager {
       }
 
       await offlineDB.addQueuedOperation(consolidatedOp)
-      console.log("Consolidated operation created:", consolidatedOp)
     } catch (error) {
       console.error("Failed to consolidate operations:", error)
     }
@@ -300,9 +293,6 @@ export class SyncManager {
         await offlineDB.addRecord(storeName, record)
       }
 
-      console.log(
-        `Cached ${data.length} ${type} records from server, preserved ${unsyncedRecords.length} unsynced records`,
-      )
     } catch (error) {
       console.error(`Failed to cache ${type} data:`, error)
     }
@@ -312,7 +302,6 @@ export class SyncManager {
     try {
       const operations = await offlineDB.getQueuedOperations()
       if (operations.length > 0) {
-        console.log(`Found ${operations.length} pending operations, triggering sync`)
         this.triggerSync()
       }
     } catch (error) {
@@ -322,16 +311,13 @@ export class SyncManager {
 
   async triggerSync(): Promise<void> {
     if (this.syncInProgress || !this.isOnline) {
-      console.log("Sync skipped:", { syncInProgress: this.syncInProgress, isOnline: this.isOnline })
       return
     }
 
     this.syncInProgress = true
-    console.log("Starting sync...")
 
     try {
       await this.syncQueuedOperations()
-      console.log("Sync completed successfully")
       this.notifySyncComplete()
       toast.success("Data synced successfully")
     } catch (error) {
@@ -344,7 +330,6 @@ export class SyncManager {
 
   private async syncQueuedOperations() {
     const operations = await offlineDB.getQueuedOperations()
-    console.log(`Syncing ${operations.length} operations`)
 
     // Group operations by record ID to handle them in order
     const operationGroups = new Map<string, QueuedOperation[]>()
@@ -362,8 +347,6 @@ export class SyncManager {
       // Sort operations by timestamp to process in order
       groupOps.sort((a, b) => a.timestamp - b.timestamp)
 
-      console.log(`Processing ${groupOps.length} operations for ${key}`)
-
       // Process the final operation (latest one)
       const finalOperation = groupOps[groupOps.length - 1]
 
@@ -374,8 +357,6 @@ export class SyncManager {
         for (const op of groupOps) {
           await offlineDB.removeQueuedOperation(op.id)
         }
-
-        console.log(`Successfully synced operations for ${key}`)
       } catch (error) {
         console.error(`Failed to sync operations for ${key}:`, error)
 
@@ -390,7 +371,6 @@ export class SyncManager {
     const isClientError = error instanceof Error && error.message.includes("HTTP 4")
 
     if (isClientError) {
-      console.log(`Client error for operation ${operation.id}, removing from queue`)
       await offlineDB.removeQueuedOperation(operation.id)
       toast.error(`Sync failed: ${error.message}`)
       return
@@ -409,8 +389,6 @@ export class SyncManager {
       }, retryDelay)
 
       this.retryTimeouts.set(operation.id, timeoutId)
-
-      console.log(`Scheduled retry for operation ${operation.id} in ${retryDelay}ms`)
     } else {
       console.error(`Max retries reached for operation ${operation.id}, removing from queue`)
       await offlineDB.removeQueuedOperation(operation.id)
@@ -464,8 +442,6 @@ export class SyncManager {
         throw new Error(`Server action failed: ${result?.error || "Unknown error"}`)
       }
 
-      console.log(`Successfully synced ${op} ${type} via server action`)
-
       // Update local record sync status
       await this.updateLocalRecordAfterSync(type, op, data, result)
     } catch (error) {
@@ -484,27 +460,22 @@ export class SyncManager {
         if (isTemporaryId) {
           delete cleanData._id
         }
-        console.log(`Creating income record via server action:`, cleanData)
         return await createIncomeRecord(cleanData)
 
       case "update":
         // For updates with temporary IDs, treat as create
         if (isTemporaryId) {
           delete cleanData._id
-          console.log(`Creating income record (was temp update) via server action:`, cleanData)
           return await createIncomeRecord(cleanData)
         } else {
-          console.log(`Updating income record via server action:`, cleanData._id, cleanData)
           return await updateIncomeRecord(cleanData._id, cleanData)
         }
 
       case "delete":
         // Don't try to delete temporary records
         if (isTemporaryId) {
-          console.log(`Skipping delete of temporary income record: ${cleanData._id}`)
           return { success: true }
         }
-        console.log(`Deleting income record via server action:`, cleanData._id)
         return await deleteIncomeRecord(cleanData._id)
 
       default:
@@ -527,25 +498,20 @@ export class SyncManager {
         if (isTemporaryId) {
           delete cleanData._id
         }
-        console.log(`Creating expense record via server action:`, cleanData)
         return await createExpenseRecord(cleanData)
 
       case "update":
         if (isTemporaryId) {
           delete cleanData._id
-          console.log(`Creating expense record (was temp update) via server action:`, cleanData)
           return await createExpenseRecord(cleanData)
         } else {
-          console.log(`Updating expense record via server action:`, cleanData._id, cleanData)
           return await updateExpenseRecord(cleanData._id, cleanData)
         }
 
       case "delete":
         if (isTemporaryId) {
-          console.log(`Skipping delete of temporary expense record: ${cleanData._id}`)
           return { success: true }
         }
-        console.log(`Deleting expense record via server action:`, cleanData._id)
         return await deleteExpenseRecord(cleanData._id)
 
       default:
@@ -567,27 +533,22 @@ export class SyncManager {
         if (isTemporaryId) {
           delete cleanData._id
         }
-        console.log(`Creating due account via server action:`, cleanData)
         return await createDueAccount(cleanData)
 
       case "update":
         // For updates with temporary IDs, treat as create
         if (isTemporaryId) {
           delete cleanData._id
-          console.log(`Creating due account (was temp update) via server action:`, cleanData)
           return await createDueAccount(cleanData)
         } else {
-          console.log(`Updating due account via server action:`, cleanData._id, cleanData)
           return await updateDueAccount(cleanData._id, cleanData)
         }
 
       case "delete":
         // Don't try to delete temporary records
         if (isTemporaryId) {
-          console.log(`Skipping delete of temporary due account: ${cleanData._id}`)
           return { success: true }
         }
-        console.log(`Deleting due account via server action:`, cleanData._id)
         return await deleteDueAccount(cleanData._id)
 
       default:
@@ -608,25 +569,20 @@ export class SyncManager {
         if (isTemporaryId) {
           delete cleanData._id
         }
-        console.log(`Creating menu item via server action:`, cleanData)
         return await createMenuItem(cleanData)
 
       case "update":
         if (isTemporaryId) {
           delete cleanData._id
-          console.log(`Creating menu item (was temp update) via server action:`, cleanData)
           return await createMenuItem(cleanData)
         } else {
-          console.log(`Updating menu item via server action:`, cleanData._id, cleanData)
           return await updateMenuItem(cleanData._id, cleanData)
         }
 
       case "delete":
         if (isTemporaryId) {
-          console.log(`Skipping delete of temporary menu item: ${cleanData._id}`)
           return { success: true }
         }
-        console.log(`Deleting menu item via server action:`, cleanData._id)
         return await deleteMenuItem(cleanData._id)
 
       default:
@@ -663,7 +619,6 @@ export class SyncManager {
 
       case "delete":
         if (isTemporaryId) {
-          console.log(`Skipping delete of temporary user record: ${cleanData._id}`)
           return { success: true }
         }
         method = "DELETE"
@@ -682,8 +637,6 @@ export class SyncManager {
     if (body) {
       requestOptions.body = body
     }
-
-    console.log(`Syncing ${operation} user via API:`, { endpoint, method, data: cleanData, isTemporaryId })
 
     const response = await fetch(endpoint, requestOptions)
 
@@ -778,7 +731,6 @@ export class SyncManager {
       await offlineDB.clearStore("menuItems")
       await offlineDB.clearStore("queuedOperations")
       await offlineDB.clearStore("apiCache")
-      console.log("Local data cleared")
       toast.success("Local data cleared")
     } catch (error) {
       console.error("Failed to clear local data:", error)

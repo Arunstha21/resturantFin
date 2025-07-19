@@ -57,9 +57,7 @@ export default function DueAccountsPage() {
   const fetchDueAccounts = useCallback(async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching due accounts...")
       const data = await OfflineAPI.getDueAccounts()
-      console.log("Due accounts fetched:", data)
 
       const accounts = Array.isArray(data) ? data : []
       const processedAccounts = accounts.map((account: any) => ({
@@ -75,7 +73,6 @@ export default function DueAccountsPage() {
       }))
       setDueAccounts(accounts)
       setDueAccountSummary(processedAccounts)
-      console.log("Due accounts state updated:", processedAccounts)
     } catch (error) {
       toast.error("Failed to fetch due accounts")
       console.error("Error fetching due accounts:", error)
@@ -87,7 +84,6 @@ export default function DueAccountsPage() {
   }, [])
 
   const handleAccountSuccess = useCallback(async () => {
-    console.log("Account operation completed, refreshing data...")
     // Add a small delay to ensure the operation is completed
     setTimeout(async () => {
       await fetchDueAccounts()
@@ -96,7 +92,6 @@ export default function DueAccountsPage() {
 
   const handleDeleteAccount = async (accountId: string, accountName: string) => {
     try {
-      console.log("Deleting account:", accountId)
       await OfflineAPI.deleteDueAccount(accountId)
 
       const successMessage = isOnline
@@ -119,7 +114,6 @@ export default function DueAccountsPage() {
 
   const handleDeleteOrder = async (orderId: string) => {
     try {
-      console.log("Deleting order:", orderId)
       await OfflineAPI.deleteIncomeRecord(orderId)
 
       const successMessage = isOnline ? "Order deleted successfully!" : "Order deleted offline - will sync when online"
@@ -136,7 +130,6 @@ export default function DueAccountsPage() {
   }
 
   const handleOrderSuccess = useCallback(async () => {
-    console.log("Order operation completed, refreshing data...")
     // Add a small delay to ensure the operation is completed
     setTimeout(async () => {
       await fetchDueAccounts()
@@ -162,7 +155,6 @@ export default function DueAccountsPage() {
   }
 
   const handleRefresh = useCallback(async () => {
-    console.log("Manual refresh triggered")
     await fetchDueAccounts()
   }, [fetchDueAccounts])
 

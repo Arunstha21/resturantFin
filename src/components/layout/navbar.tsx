@@ -3,6 +3,18 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
+import { usePathname } from "next/navigation"
+
+import {
+  Menu,
+  X,
+  BarChart3,
+  FileText,
+  DollarSign,
+  LogOut,
+  Users,
+} from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import {
@@ -14,58 +26,75 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Menu, X, BarChart3, FileText, DollarSign, LogOut, Users } from "lucide-react"
-import { usePathname } from "next/navigation"
+
+const baseNavigation = [
+  { name: "Dashboard", shortName: "Dash", href: "/dashboard", icon: BarChart3 },
+  { name: "Records", shortName: "Rec", href: "/dashboard/records", icon: DollarSign },
+  { name: "Reports", shortName: "Rpt", href: "/dashboard/reports", icon: FileText },
+  { name: "Menu", shortName: "Menu", href: "/dashboard/menu-management", icon: FileText },
+  { name: "Due Accounts", shortName: "Due", href: "/dashboard/due-accounts", icon: DollarSign },
+]
+
+const adminExtra = [
+  { name: "Users", shortName: "Users", href: "/dashboard/users", icon: Users },
+  { name: "Sales Analytics", shortName: "Sales", href: "/dashboard/sales-analytics", icon: BarChart3 },
+]
+
+const getNavigation = (role: string | undefined) => {
+  return role === "admin"
+    ? [...baseNavigation, ...adminExtra]
+    : role === "manager"
+    ? baseNavigation.filter((item) => item.name !== "Menu")
+    : baseNavigation
+}
+
 
 export function Navbar() {
   const { data: session } = useSession()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const path = usePathname()
-
-  const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-    { name: "Records", href: "/dashboard/records", icon: DollarSign },
-    { name: "Reports", href: "/dashboard/reports", icon: FileText },
-    {name: "Menu", href: "/dashboard/menu-management", icon: FileText },
-    { name: "Due Accounts", href: "/dashboard/due-accounts", icon: DollarSign },
-    ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/dashboard/users", icon: Users }, { name: "Sales Analytics", href: "/dashboard/sales-analytics", icon: BarChart3 }] : []),
-  ]
+  const pathname = usePathname()
+  const userRole = session?.user?.role
+  const navigation = getNavigation(userRole)
 
   return (
     <nav className="bg-background border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/dashboard" className="flex-shrink-0 flex items-center">
+            <Link href="/dashboard" className="flex items-center">
               <BarChart3 className="h-8 w-8 text-primary" />
               <span className="ml-2 text-xl font-bold">RestaurantFin</span>
             </Link>
 
-            <div className="hidden md:ml-6 md:flex md:space-x-8">
+            {/* Desktop & Tablet Nav */}
+            <div className="hidden sm:flex sm:space-x-4 md:ml-6">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center px-3 py-2 text-sm font-medium hover:x transition-colors ` +
-                    (path === item.href ? "text-foreground border-b-2 border-primary" :
-                      "hover:border-b-2 hover:border-primary hover:text-foreground text-muted-foreground")}
+                  className={`flex items-center px-2 py-1 text-sm font-medium transition-colors ${
+                    pathname === item.href
+                      ? "text-foreground border-b-2 border-primary"
+                      : "text-muted-foreground hover:text-foreground hover:border-b-2 hover:border-primary"
+                  }`}
                 >
-                  <item.icon className="h-4 w-4 mr-2" />
-                  {item.name}
+                  <item.icon className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline md:hidden">{item.shortName}</span> {/* tablet */}
+                  <span className="hidden md:inline">{item.name}</span> {/* desktop */}
                 </Link>
               ))}
             </div>
           </div>
 
+          {/* Right Panel */}
           <div className="flex items-center space-x-4">
             <ModeToggle />
-
             {session ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>{session.user?.name?.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{session.user?.name?.[0]?.toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -74,7 +103,7 @@ export function Navbar() {
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">{session.user?.name}</p>
                       <p className="text-xs leading-none text-muted-foreground">{session.user?.email}</p>
-                      <p className="text-xs leading-none text-muted-foreground capitalize">{session.user?.role}</p>
+                      <p className="text-xs leading-none text-muted-foreground capitalize">{userRole}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -90,7 +119,8 @@ export function Navbar() {
               </Link>
             )}
 
-            <div className="md:hidden">
+            {/* Mobile menu toggle */}
+            <div className="sm:hidden">
               <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
@@ -99,14 +129,15 @@ export function Navbar() {
         </div>
       </div>
 
+      {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t">
+        <div className="sm:hidden border-t">
+          <div className="px-2 pt-2 pb-3 space-y-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <item.icon className="h-5 w-5 mr-3" />

@@ -89,7 +89,6 @@ export default function RecordsPage() {
   const fetchRecords = useCallback(async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching records...")
       const [incomeData, expenseData] = await Promise.all([
         OfflineAPI.getIncomeRecords(),
         OfflineAPI.getExpenseRecords(),
@@ -849,23 +848,30 @@ export default function RecordsPage() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <div className="relative">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
+                <div className="relative w-full sm:w-auto">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search orders..."
                     value={incomeGlobalFilter ?? ""}
                     onChange={(event) => setIncomeGlobalFilter(String(event.target.value))}
-                    className="pl-8 w-[300px]"
+                    className="pl-8 w-full sm:w-[300px]"
                   />
                 </div>
-                <Button variant="outline" onClick={fetchRecords} disabled={isLoading}>
+                <Button
+                  variant="outline"
+                  onClick={fetchRecords}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto"
+                >
                   <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
               </div>
-              <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
+              <div className="w-full sm:w-auto">
+                <IncomeRecordDialog onSuccess={handleFormSuccess} mode="create" />
+              </div>
             </div>
 
             <Card>
@@ -938,25 +944,31 @@ export default function RecordsPage() {
           </TabsContent>
 
           <TabsContent value="expenses" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search expenses..."
-                    value={expenseGlobalFilter ?? ""}
-                    onChange={(event) => setExpenseGlobalFilter(String(event.target.value))}
-                    className="pl-8 w-[300px]"
-                  />
-                </div>
-                <Button variant="outline" onClick={fetchRecords} disabled={isLoading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search expenses..."
+                  value={expenseGlobalFilter ?? ""}
+                  onChange={(event) => setExpenseGlobalFilter(String(event.target.value))}
+                  className="pl-8 w-[300px]"
+                />
               </div>
+              <Button
+                variant="outline"
+                onClick={fetchRecords}
+                disabled={isLoading}
+                className="w-full sm:w-auto"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+            <div className="w-full sm:w-auto">
               <ExpenseRecordDialog onSuccess={handleFormSuccess} mode="create" />
             </div>
-
+          </div>
             <Card>
               <CardHeader>
                 <CardTitle>Expense Records</CardTitle>

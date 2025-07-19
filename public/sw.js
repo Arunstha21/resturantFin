@@ -10,11 +10,9 @@ const STATIC_ASSETS = ["/", "/dashboard", "/records", "/reports", "/users", "/au
 const CACHEABLE_APIS = ["/api/income-records", "/api/expense-records", "/api/users", "/api/dashboard"]
 
 self.addEventListener("install", (event) => {
-  console.log("Service Worker installing...")
   event.waitUntil(
     Promise.all([
       caches.open(STATIC_CACHE).then((cache) => {
-        console.log("Caching static assets...")
         return cache.addAll(STATIC_ASSETS).catch((err) => {
           console.error("Failed to cache some static assets:", err)
         })
@@ -28,13 +26,11 @@ self.addEventListener("install", (event) => {
 })
 
 self.addEventListener("activate", (event) => {
-  console.log("Service Worker activating...")
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE && cacheName !== API_CACHE) {
-            console.log("Deleting old cache:", cacheName)
             return caches.delete(cacheName)
           }
         }),
@@ -67,15 +63,12 @@ async function handleApiRequest(request) {
   const url = new URL(request.url)
 
   try {
-    console.log("Fetching from network:", url.pathname)
-
     // Try network first
     const networkResponse = await fetch(request.clone())
 
     // Cache successful responses
     if (networkResponse.ok && CACHEABLE_APIS.some((api) => url.pathname.startsWith(api))) {
       const cache = await caches.open(API_CACHE)
-      console.log("Caching API response:", url.pathname)
       cache.put(request.clone(), networkResponse.clone())
     }
 

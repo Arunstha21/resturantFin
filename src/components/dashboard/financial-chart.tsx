@@ -17,7 +17,6 @@ import {
   AreaChart,
   XAxis,
   YAxis,
-  ResponsiveContainer,
   Legend,
 } from "recharts"
 import type { ChartData } from "@/types"
@@ -94,7 +93,6 @@ export function FinancialChart({ data }: FinancialChartProps) {
       </CardHeader>
       <CardContent className="p-2 sm:p-6">
         <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
               margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
@@ -171,7 +169,6 @@ export function FinancialChart({ data }: FinancialChartProps) {
                 isAnimationActive={true}
               />
             </AreaChart>
-          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
     </Card>

@@ -118,7 +118,6 @@ export class OfflineAPI {
 
   static async deleteIncomeRecord(id: string): Promise<{ success: boolean }> {
     try {
-      console.log(`Deleting income record: ${id}`)
 
       // If online and not a temporary ID, try server first
       if (navigator.onLine && !id.startsWith("temp_")) {

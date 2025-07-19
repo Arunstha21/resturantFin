@@ -7,11 +7,8 @@ export async function getSalesAnalytics(dateFilter = "month") {
   try {
     await dbConnect()
 
-    console.log(`Starting sales analytics for filter: ${dateFilter}`)
-
     // Step 1: Get ALL income records from database at once
     const allIncomeRecords = await IncomeRecord.find({}).lean()
-    // console.log(`Retrieved ${allIncomeRecords.length} total income records from database`)
 
     if (allIncomeRecords.length === 0) {
       return {
@@ -57,8 +54,6 @@ export async function getSalesAnalytics(dateFilter = "month") {
       default:
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     }
-
-    console.log(`Filtering records from ${startDate.toISOString()} to ${now.toISOString()}`)
 
     // Step 3: Analyze all records first to understand the data
     const analysisResults: {
@@ -109,20 +104,6 @@ export async function getSalesAnalytics(dateFilter = "month") {
       if (isInDateRange && hasValidPayment && hasItemsWithNames) analysisResults.recordsPassingAllFilters++
     })
 
-    console.log("Analysis Results:", {
-      totalRecords: analysisResults.totalRecords,
-      recordsInDateRange: analysisResults.recordsInDateRange,
-      recordsWithValidPayment: analysisResults.recordsWithValidPayment,
-      recordsWithItems: analysisResults.recordsWithItems,
-      recordsWithItemsAndNames: analysisResults.recordsWithItemsAndNames,
-      recordsPassingAllFilters: analysisResults.recordsPassingAllFilters,
-      paymentStatusBreakdown: Object.fromEntries(analysisResults.paymentStatusBreakdown),
-      dateRangeInDB: {
-        oldest: analysisResults.dateRangeInDB.oldest?.toISOString(),
-        newest: analysisResults.dateRangeInDB.newest?.toISOString(),
-      },
-    })
-
     // Step 4: Filter records with more flexible criteria
     const filteredRecords = allIncomeRecords.filter((record) => {
       // Check date (skip if "all" filter)
@@ -142,11 +123,8 @@ export async function getSalesAnalytics(dateFilter = "month") {
       return isInDateRange && validPaymentStatus && hasValidItems
     })
 
-    console.log(`Filtered to ${filteredRecords.length} records matching criteria`)
-
     // If we still have very few records, let's be even more flexible
     if (filteredRecords.length < 10 && dateFilter !== "all") {
-      console.log("Very few records found, trying more flexible filtering...")
 
       const moreFlexibleRecords = allIncomeRecords.filter((record) => {
         const recordDate = new Date(record.date)
@@ -162,7 +140,6 @@ export async function getSalesAnalytics(dateFilter = "month") {
       })
 
       if (moreFlexibleRecords.length > filteredRecords.length) {
-        console.log(`Using more flexible filtering: ${moreFlexibleRecords.length} records`)
         filteredRecords.splice(0, filteredRecords.length, ...moreFlexibleRecords)
       }
     }
@@ -308,15 +285,6 @@ export async function getSalesAnalytics(dateFilter = "month") {
       uniqueItemTypes: uniqueItemNames.size,
     }
 
-    console.log(`Processing complete:`)
-    console.log(`- Processed ${totalOrders} orders`)
-    console.log(`- Total revenue: $${totalRevenue}`)
-    console.log(`- Total items sold: ${totalItemsSold}`)
-    console.log(`- Unique items: ${uniqueItemNames.size}`)
-    console.log(`- Best selling items: ${bestSellingItems.length}`)
-    console.log(`- Categories: ${categorySales.length}`)
-    console.log(`- Daily records: ${dailySales.length}`)
-
     return {
       success: true,
       data: {
@@ -363,13 +331,8 @@ export async function getSalesAnalytics(dateFilter = "month") {
 export async function getItemSalesHistory(itemName: string, limit = 1000) {
   try {
     await dbConnect()
-
-    console.log(`Fetching sales history for item: ${itemName}`)
-
     // Get ALL income records at once
     const allRecords = await IncomeRecord.find({})
-    // console.log(`Retrieved ${allRecords.length} total records for item history analysis`)
-
     const salesHistory: any[] = []
 
     // Process records in JavaScript
@@ -404,8 +367,6 @@ export async function getItemSalesHistory(itemName: string, limit = 1000) {
     salesHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     const limitedHistory = salesHistory.slice(0, limit)
 
-    console.log(`Found ${salesHistory.length} sales for item "${itemName}", returning ${limitedHistory.length}`)
-
     return {
       success: true,
       data: limitedHistory,
@@ -422,8 +383,6 @@ export async function getItemSalesHistory(itemName: string, limit = 1000) {
 export async function getItemPriceHistory(itemName: string) {
   try {
     await dbConnect()
-
-    console.log(`Fetching price history for item: ${itemName}`)
 
     // Get ALL income records at once
     const allRecords = await IncomeRecord.find({}).lean()
@@ -476,8 +435,6 @@ export async function getItemPriceHistory(itemName: string) {
     const priceHistory = Array.from(priceHistoryMap.values()).sort(
       (a, b) => new Date(b.firstSeen).getTime() - new Date(a.firstSeen).getTime(),
     )
-
-    console.log(`Found ${priceHistory.length} price points for item: ${itemName}`)
 
     return {
       success: true,

@@ -32,11 +32,9 @@ const CACHEABLE_APIS = ["/api/income-records", "/api/expense-records", "/api/use
 const sw = self as unknown as ServiceWorkerGlobalScope
 
 sw.addEventListener("install", (event) => {
-  console.log("Service Worker installing...")
   event.waitUntil(
     Promise.all([
       caches.open(STATIC_CACHE).then((cache) => {
-        console.log("Caching static assets...")
         return cache.addAll(STATIC_ASSETS).catch((err) => {
           console.error("Failed to cache some static assets:", err)
         })
@@ -50,13 +48,11 @@ sw.addEventListener("install", (event) => {
 })
 
 sw.addEventListener("activate", (event) => {
-  console.log("Service Worker activating...")
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE && cacheName !== API_CACHE) {
-            console.log("Deleting old cache:", cacheName)
             return caches.delete(cacheName)
           }
         }),
@@ -89,24 +85,19 @@ async function handleApiRequest(request: Request): Promise<Response> {
   const url = new URL(request.url)
 
   try {
-    console.log("Fetching from network:", url.pathname)
-
     // Try network first
     const networkResponse = await fetch(request.clone())
 
     // Cache successful responses
     if (networkResponse.ok && CACHEABLE_APIS.some((api) => url.pathname.startsWith(api))) {
       const cache = await caches.open(API_CACHE)
-      console.log("Caching API response:", url.pathname)
       cache.put(request.clone(), networkResponse.clone())
     }
 
     return networkResponse
   } catch (error) {
-    console.log("Network failed, trying cache:", url.pathname)
-    console.log("Error fetching from network:", error);
-    
     // Network failed, try cache
+    console.log("Network failed for API request, trying cache:", request.url, "error:", error)
     const cachedResponse = await caches.match(request)
     if (cachedResponse) {
       console.log("Serving from cache:", url.pathname)
@@ -114,7 +105,6 @@ async function handleApiRequest(request: Request): Promise<Response> {
     }
 
     // Return offline response
-    console.log("No cache available, returning offline response")
     return new Response(
       JSON.stringify({
         error: "Offline",
@@ -180,14 +170,12 @@ async function handleStaticRequest(request: Request): Promise<Response> {
 // Background sync for queued operations
 sw.addEventListener("sync", (event) => {
   const syncEvent = event as SyncEvent;
-  console.log("Background sync triggered:", (syncEvent as any).tag)
   if ((syncEvent as any).tag === "background-sync") {
     syncEvent.waitUntil(syncQueuedOperations())
   }
 })
 
 async function syncQueuedOperations() {
-  console.log("Syncing queued operations...")
   const clients = await sw.clients.matchAll()
   clients.forEach((client) => {
     client.postMessage({ type: "SYNC_QUEUED_OPERATIONS" })
@@ -196,8 +184,6 @@ async function syncQueuedOperations() {
 
 // Handle messages from main thread
 sw.addEventListener("message", (event) => {
-  console.log("Service Worker received message:", event.data)
-
   if (event.data && event.data.type === "SKIP_WAITING") {
     sw.skipWaiting()
   }

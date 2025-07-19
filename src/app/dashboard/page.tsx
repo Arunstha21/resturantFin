@@ -39,9 +39,7 @@ export default function DashboardPage() {
   const fetchDashboardStats = async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching dashboard stats...")
       const data = await OfflineAPI.getDashboardStats(dateFilter)
-      console.log("Dashboard stats:", data)
 
       setStats(data)
       setIsFromCache(!!data._fromCache)

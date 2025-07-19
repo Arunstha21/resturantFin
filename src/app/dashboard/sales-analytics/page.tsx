@@ -175,14 +175,11 @@ export default function SalesAnalytics() {
   const fetchItemHistory = async (itemName: string) => {
     setHistoryLoading(true)
     try {
-      console.log(`Fetching history for item: ${itemName}`)
       const [historyResult, priceResult] = await Promise.all([
         getItemSalesHistory(itemName),
         getItemPriceHistory(itemName),
       ])
 
-      console.log("History result:", historyResult)
-      console.log("Price result:", priceResult)
 
       if (historyResult.success) {
         if (!historyResult.data) {
@@ -223,7 +220,6 @@ export default function SalesAnalytics() {
   }
 
   const handleViewItemHistory = (itemName: string) => {
-    console.log(`Opening history for item: ${itemName}`)
     setSelectedItem(itemName)
     setHistoryDialogOpen(true)
     fetchItemHistory(itemName)

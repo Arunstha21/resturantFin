@@ -42,13 +42,11 @@ class OfflineDB {
 
       request.onsuccess = () => {
         this.db = request.result
-        console.log("IndexedDB initialized successfully")
         resolve()
       }
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result
-        console.log("Upgrading IndexedDB schema...")
 
         // Income records store
         if (!db.objectStoreNames.contains("incomeRecords")) {
@@ -123,7 +121,6 @@ class OfflineDB {
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        console.log(`Record added to ${storeName}:`, record.id)
         resolve()
       }
     })
@@ -160,7 +157,6 @@ class OfflineDB {
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
         const records = request.result || []
-        console.log(`Retrieved ${records.length} records from ${storeName}`)
         resolve(records)
       }
     })
@@ -176,25 +172,21 @@ class OfflineDB {
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        console.log(`Record deleted from ${storeName}:`, id)
         resolve()
       }
     })
   }
 
   async addQueuedOperation(operation: QueuedOperation): Promise<void> {
-    console.log("Adding queued operation:", operation)
     return this.addRecord("queuedOperations", operation as any)
   }
 
   async getQueuedOperations(): Promise<QueuedOperation[]> {
     const operations = (await this.getRecords("queuedOperations") as unknown) as QueuedOperation[]
-    console.log(`Retrieved ${operations.length} queued operations`)
     return operations.sort((a, b) => a.timestamp - b.timestamp)
   }
 
   async removeQueuedOperation(id: string): Promise<void> {
-    console.log("Removing queued operation:", id)
     return this.deleteRecord("queuedOperations", id)
   }
 
@@ -212,7 +204,6 @@ class OfflineDB {
           record.synced = synced
           const putRequest = store.put(record)
           putRequest.onsuccess = () => {
-            console.log(`Updated sync status for ${id} in ${storeName}: ${synced}`)
             resolve()
           }
           putRequest.onerror = () => reject(putRequest.error)
@@ -241,7 +232,6 @@ class OfflineDB {
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        console.log(`API response cached for ${url}`)
         resolve()
       }
     })
@@ -259,7 +249,6 @@ class OfflineDB {
       request.onsuccess = () => {
         const cached = request.result
         if (cached && cached.expiry > Date.now()) {
-          console.log(`Serving cached API response for ${url}`)
           resolve(cached.data)
         } else {
           if (cached) {
@@ -282,7 +271,6 @@ class OfflineDB {
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        console.log(`Cleared store: ${storeName}`)
         resolve()
       }
     })

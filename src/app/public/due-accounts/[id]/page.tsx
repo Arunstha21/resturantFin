@@ -40,8 +40,6 @@ export default function PublicDueAccountPage({ params }: PublicDueAccountPagePro
       setError(null)
 
       const response = await fetch(`/api/due-accounts/public/${accountId}`)
-      console.log(response);
-      
       const data = await response.json()
 
       if (!response.ok) {
