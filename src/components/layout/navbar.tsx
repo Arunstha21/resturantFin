@@ -28,7 +28,7 @@ export function Navbar() {
     { name: "Reports", href: "/dashboard/reports", icon: FileText },
     {name: "Menu", href: "/dashboard/menu-management", icon: FileText },
     { name: "Due Accounts", href: "/dashboard/due-accounts", icon: DollarSign },
-    ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/dashboard/users", icon: Users }] : []),
+    ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/dashboard/users", icon: Users }, { name: "Sales Analytics", href: "/dashboard/sales-analytics", icon: BarChart3 }] : []),
   ]
 
   return (

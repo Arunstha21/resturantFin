@@ -140,7 +140,10 @@ export default function DashboardPage() {
               <SelectContent>
                 <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="lastWeek">Last Week</SelectItem>
                 <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="lastMonth">Last Month</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
               </SelectContent>
             </Select>
 

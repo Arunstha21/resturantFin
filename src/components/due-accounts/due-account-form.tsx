@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "sonner"
 import { dueAccountSchema, type DueAccountInput } from "@/lib/validations"
 import { OfflineAPI } from "@/lib/offline/offline-api"
@@ -21,12 +21,7 @@ export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { isOnline } = useOffline()
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<DueAccountInput>({
+  const form = useForm<DueAccountInput>({
     resolver: zodResolver(dueAccountSchema),
     defaultValues: account
       ? {
@@ -39,6 +34,7 @@ export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
           customerPhone: "",
           customerEmail: "",
         },
+    mode: "onChange",
   })
 
   const onSubmit = async (data: DueAccountInput) => {
@@ -62,7 +58,7 @@ export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
 
       if (result?.success) {
         if (!account) {
-          reset({
+          form.reset({
             customerName: "",
             customerPhone: "",
             customerEmail: "",
@@ -87,55 +83,66 @@ export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
+            Changes will be saved locally and synced when you're back online.
           </p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="customerName">Customer Name *</Label>
-          <Input
-            id="customerName"
-            placeholder="John Doe"
-            {...register("customerName")}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="customerName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Customer Name *</FormLabel>
+                <FormControl>
+                  <Input placeholder="John Doe" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-          {errors.customerName && (
-            <p className="text-sm text-red-600">{errors.customerName.message}</p>
-          )}
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="customerPhone">Phone Number</Label>
-          <Input
-            id="customerPhone"
-            placeholder="+1 (555) 123-4567"
-            {...register("customerPhone")}
+          <FormField
+            control={form.control}
+            name="customerPhone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="+1 (555) 123-4567" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-          {errors.customerPhone && (
-            <p className="text-sm text-red-600">{errors.customerPhone.message}</p>
-          )}
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="customerEmail">Email Address</Label>
-          <Input
-            id="customerEmail"
-            type="email"
-            placeholder="john@example.com"
-            {...register("customerEmail")}
+          <FormField
+            control={form.control}
+            name="customerEmail"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email Address</FormLabel>
+                <FormControl>
+                  <Input type="email" placeholder="john@example.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-          {errors.customerEmail && (
-            <p className="text-sm text-red-600">{errors.customerEmail.message}</p>
-          )}
-        </div>
 
-        <div className="flex gap-2 pt-4">
-          <Button type="submit" disabled={isLoading} className="flex-1">
-            {isLoading ? "Saving..." : account ? "Update Account" : "Create Account"}
-          </Button>
-        </div>
-      </form>
+          <div className="flex gap-2 pt-4">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 touch-manipulation active:scale-95 transition-transform"
+            >
+              {isLoading ? "Saving..." : account ? "Update Account" : "Create Account"}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   )
 }

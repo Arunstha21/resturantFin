@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { showPromiseToast } from "@/lib/toast-utils"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { toast } from "sonner"
 import { userSchema, type UserInput } from "@/lib/validations"
 import { createUser, updateUser } from "@/app/actions/users"
 import type { User } from "@/types"
@@ -21,14 +21,7 @@ interface UserFormProps {
 export function UserForm({ user, onSuccess }: UserFormProps) {
   const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-    reset,
-  } = useForm<UserInput>({
+  const form = useForm<UserInput>({
     resolver: zodResolver(userSchema),
     defaultValues: user
       ? {
@@ -38,29 +31,33 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
           password: "",
         }
       : {
+          name: "",
+          email: "",
           role: "manager",
+          password: "",
         },
+    mode: "onChange",
   })
 
   const onSubmit = async (data: UserInput) => {
     setIsLoading(true)
 
     try {
-      const promise = user ? updateUser(user._id, data) : createUser(data)
-
-      await showPromiseToast(promise, {
-        loading: user ? "Updating user..." : "Creating user...",
-        success: user ? "User updated successfully!" : "User created successfully!",
-        error: "Something went wrong. Please try again.",
-      })
+      if (user) {
+        await updateUser(user._id, data)
+        toast.success("User updated successfully!")
+      } else {
+        await createUser(data)
+        toast.success("User created successfully!")
+      }
 
       if (!user) {
-        reset()
+        form.reset()
       }
       onSuccess?.()
     } catch (error) {
       console.error("Error submitting user form:", error)
-      // Error is already handled by the promise toast
+      toast.error("Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -72,43 +69,81 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
         <CardTitle>{user ? "Edit User" : "Add New User"}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input id="name" placeholder="John Doe" {...register("name")} />
-            {errors.name && <p className="text-sm text-red-600">{errors.name.message}</p>}
-          </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="john@restaurant.com" {...register("email")} />
-            {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
-          </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email *</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="john@restaurant.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password {user && "(leave blank to keep current)"}</Label>
-            <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
-            {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
-          </div>
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password {user && "(leave blank to keep current)"}</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="••••••••" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select value={watch("role")} onValueChange={(value) => setValue("role", value as "admin" | "manager")}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.role && <p className="text-sm text-red-600">{errors.role.message}</p>}
-          </div>
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? "Saving..." : user ? "Update User" : "Create User"}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full touch-manipulation active:scale-95 transition-transform"
+            >
+              {isLoading ? "Saving..." : user ? "Update User" : "Create User"}
+            </Button>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   )
