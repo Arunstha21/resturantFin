@@ -115,9 +115,7 @@ export default function SalesAnalytics() {
     setLoading(true)
     setError(null)
     try {
-      console.log(`Fetching sales data for filter: ${filter}`)
       const result = await getSalesAnalytics(filter)
-      console.log("Sales analytics result:", result)
 
       if (result.success) {
         if (!result.data) return setSalesData(null)

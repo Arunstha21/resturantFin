@@ -10,23 +10,21 @@ export function useOffline() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
   const [isCheckingConnectivity, setIsCheckingConnectivity] = useState(false)
 
-  // Use refs to prevent infinite loops
+  // Use refs to prevent infinite loops and memory leaks
   const connectivityCheckRef = useRef<NodeJS.Timeout | null>(null)
   const isCheckingRef = useRef(false)
   const lastCheckTimeRef = useRef(0)
+  const mountedRef = useRef(true)
 
-  // Test actual internet connectivity with debouncing
+  // Optimized connectivity test with better mobile handling
   const testConnectivity = useCallback(async (): Promise<boolean> => {
-    // Prevent multiple simultaneous checks
-    if (isCheckingRef.current) {
-      console.log("Connectivity check already in progress, skipping...")
+    if (isCheckingRef.current || !mountedRef.current) {
       return isOnline
     }
 
-    // Debounce: Don't check more than once every 5 seconds
     const now = Date.now()
-    if (now - lastCheckTimeRef.current < 5000) {
-      console.log("Connectivity check debounced, using cached result...")
+    if (now - lastCheckTimeRef.current < 15000) {
+      // Increased debounce for mobile
       return isOnline
     }
 
@@ -38,12 +36,13 @@ export function useOffline() {
     lastCheckTimeRef.current = now
 
     try {
-      setIsCheckingConnectivity(true)
-      console.log("Testing actual internet connectivity...")
+      if (mountedRef.current) {
+        setIsCheckingConnectivity(true)
+      }
 
-      // Test our own API first (fastest and most reliable for our app)
+      // Use shorter timeout for mobile
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000)
+      const timeoutId = setTimeout(() => controller.abort(), 2000) // Reduced from 3000
 
       try {
         const response = await fetch("/api/health", {
@@ -52,126 +51,143 @@ export function useOffline() {
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
-
-        if (response.ok) {
-          console.log("Health check passed - internet is available")
-          return true
-        }
+        return response.ok
       } catch (error) {
         clearTimeout(timeoutId)
-        console.log("Health check failed, trying external endpoint...", error)
-      }
 
-      // If our API fails, try one external endpoint
-      try {
-        const controller2 = new AbortController()
-        const timeoutId2 = setTimeout(() => controller2.abort(), 5000)
+        // Fallback test with even shorter timeout
+        try {
+          const controller2 = new AbortController()
+          const timeoutId2 = setTimeout(() => controller2.abort(), 3000)
 
-        await fetch("https://www.google.com/favicon.ico", {
-          method: "HEAD",
-          mode: "no-cors",
-          cache: "no-cache",
-          signal: controller2.signal,
-        })
-        clearTimeout(timeoutId2)
-        console.log("External connectivity test passed")
-        return true
-      } catch (error) {
-        console.log("External connectivity test failed", error)
-        return false
+          await fetch("https://www.google.com/favicon.ico", {
+            method: "HEAD",
+            mode: "no-cors",
+            cache: "no-cache",
+            signal: controller2.signal,
+          })
+          clearTimeout(timeoutId2)
+          return true
+        } catch (fallbackError) {
+          return false
+        }
       }
     } catch (error) {
-      console.error("Connectivity test failed:", error)
+      console.error("Connectivity check error:", error)
       return false
     } finally {
-      setIsCheckingConnectivity(false)
+      if (mountedRef.current) {
+        setIsCheckingConnectivity(false)
+      }
       isCheckingRef.current = false
     }
   }, [isOnline])
 
-  // Update online status with proper state management
   const updateOnlineStatus = useCallback(async () => {
+    if (!mountedRef.current) return
+
     const online = await testConnectivity()
-    setIsOnline((prevOnline) => {
-      if (prevOnline !== online) {
-        console.log("Connectivity status changed:", online ? "Online (Internet Available)" : "Offline (No Internet)")
-      }
-      return online
-    })
+    if (mountedRef.current) {
+      setIsOnline((prevOnline) => {
+        if (prevOnline !== online) {
+          console.log("Connectivity status changed:", online ? "Online" : "Offline")
+        }
+        return online
+      })
+    }
   }, [testConnectivity])
 
   const updateSyncStatus = useCallback(() => {
-    setIsSyncing(syncManager.getSyncStatus())
+    if (mountedRef.current) {
+      setIsSyncing(syncManager.getSyncStatus())
+    }
   }, [])
 
   const updatePendingOperations = useCallback(async () => {
+    if (!mountedRef.current) return
+
     try {
       const count = await syncManager.getPendingOperationsCount()
-      setPendingOperations(count)
+      if (mountedRef.current) {
+        setPendingOperations(count)
+      }
     } catch (error) {
       console.error("Failed to get pending operations:", error)
     }
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
+
     // Initial status check
     updateOnlineStatus()
     updateSyncStatus()
     updatePendingOperations()
 
-    // Network change listeners
+    // Optimized network event listeners
     const handleOnline = () => {
-      console.log("Network connected, testing actual connectivity...")
-      // Clear any existing timeout
       if (connectivityCheckRef.current) {
         clearTimeout(connectivityCheckRef.current)
       }
-      // Delay the check slightly to avoid rapid firing
       connectivityCheckRef.current = setTimeout(() => {
         updateOnlineStatus()
-      }, 1000)
+      }, 1500) // Slightly longer delay for mobile
     }
 
     const handleOffline = () => {
-      console.log("Network disconnected")
-      setIsOnline(false)
-      setIsCheckingConnectivity(false)
-      // Clear any pending connectivity checks
+      if (mountedRef.current) {
+        setIsOnline(false)
+        setIsCheckingConnectivity(false)
+      }
       if (connectivityCheckRef.current) {
         clearTimeout(connectivityCheckRef.current)
         connectivityCheckRef.current = null
       }
     }
 
+    // Visibility change handler for mobile optimization
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && mountedRef.current) {
+        // App became visible, check connectivity
+        setTimeout(updateOnlineStatus, 1000)
+      }
+    }
+
     window.addEventListener("online", handleOnline)
     window.addEventListener("offline", handleOffline)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     // Sync completion callback
     syncManager.onSyncComplete(() => {
-      setIsSyncing(false)
-      setLastSyncTime(new Date())
-      updatePendingOperations()
+      if (mountedRef.current) {
+        setIsSyncing(false)
+        setLastSyncTime(new Date())
+        updatePendingOperations()
+      }
     })
 
-    // Periodic connectivity check with longer intervals
+    // Reduced polling intervals for mobile battery optimization
     const connectivityInterval = setInterval(
       () => {
-        if (!isCheckingRef.current) {
+        if (!isCheckingRef.current && mountedRef.current) {
           updateOnlineStatus()
         }
       },
-      isOnline ? 60000 : 30000,
-    ) // 1 minute when online, 30 seconds when offline
+      isOnline ? 180000 : 90000, // 3 minutes when online, 1.5 minutes when offline
+    )
 
-    // Check pending operations periodically
     const operationsInterval = setInterval(() => {
-      updatePendingOperations()
-      updateSyncStatus()
-    }, 5000) // Every 5 seconds instead of 2
+      if (mountedRef.current) {
+        updatePendingOperations()
+        updateSyncStatus()
+      }
+    }, 15000) // Every 15 seconds instead of 10
 
     return () => {
+      mountedRef.current = false
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       clearInterval(connectivityInterval)
       clearInterval(operationsInterval)
 
@@ -185,13 +201,14 @@ export function useOffline() {
     if (!isOnline) {
       throw new Error("Cannot sync while offline")
     }
-
     await syncManager.triggerSync()
   }
 
   const clearLocalData = async () => {
     await syncManager.clearLocalData()
-    setPendingOperations(0)
+    if (mountedRef.current) {
+      setPendingOperations(0)
+    }
   }
 
   const getStorageStats = async () => {
@@ -208,6 +225,6 @@ export function useOffline() {
     clearLocalData,
     getStorageStats,
     syncManager,
-    testConnectivity, // Expose for manual testing
+    testConnectivity,
   }
 }

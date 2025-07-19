@@ -61,10 +61,12 @@ interface RecordsTableProps {
   onDelete: (id: string) => Promise<void>
   CreateDialog: React.ComponentType<{ onSuccess: () => Promise<void> }>
   EditDialog: React.ComponentType<{ record: any; onSuccess: () => Promise<void> }>
+  isAdmin?: boolean
+  fetchAllRecords?: () => Promise<void>
 }
 
 export const RecordsTable = React.memo<RecordsTableProps>(
-  ({ type, data, isLoading, isRefreshing, onRefresh, onSuccess, onDelete, CreateDialog, EditDialog }) => {
+  ({ type, data, isLoading, isRefreshing, onRefresh, onSuccess, onDelete, CreateDialog, EditDialog, isAdmin, fetchAllRecords }) => {
     const [sorting, setSorting] = useState<SortingState>([])
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
     const [globalFilter, setGlobalFilter] = useState("")
@@ -603,29 +605,43 @@ export const RecordsTable = React.memo<RecordsTableProps>(
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={`Search ${type === "income" ? "orders" : "expenses"}...`}
-                value={globalFilter ?? ""}
-                onChange={(event) => setGlobalFilter(String(event.target.value))}
-                className="pl-8 w-[300px]"
-              />
-            </div>
-            <Button variant="outline" onClick={onRefresh} disabled={isLoading || isRefreshing}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading || isRefreshing ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <div className="relative w-full sm:w-[300px]">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${type === "income" ? "orders" : "expenses"}...`}
+              value={globalFilter ?? ""}
+              onChange={(event) => setGlobalFilter(String(event.target.value))}
+              className="pl-8 w-full"
+            />
           </div>
+          <Button
+            variant="outline"
+            onClick={onRefresh}
+            disabled={isLoading || isRefreshing}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading || isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+        <div className="w-full sm:w-auto">
           <CreateDialog onSuccess={onSuccess} />
         </div>
+      </div>
 
         <Card>
           <CardHeader>
             <CardTitle>
-              {type === "income" ? "Orders & Income Records" : "Expense Records"} ({data.length})
+              <div className="flex justify-between items-center gap-2">
+                <span>{type === "income" ? "Orders & Income Records" : "Expense Records"} ({data.length})</span>
+                {isAdmin && (
+                  <Button variant="outline" onClick={fetchAllRecords} disabled={isLoading || isRefreshing}>
+                    Fetch All Records
+                  </Button>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>

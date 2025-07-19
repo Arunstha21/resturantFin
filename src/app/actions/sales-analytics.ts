@@ -11,7 +11,7 @@ export async function getSalesAnalytics(dateFilter = "month") {
 
     // Step 1: Get ALL income records from database at once
     const allIncomeRecords = await IncomeRecord.find({}).lean()
-    console.log(`Retrieved ${allIncomeRecords.length} total income records from database`)
+    // console.log(`Retrieved ${allIncomeRecords.length} total income records from database`)
 
     if (allIncomeRecords.length === 0) {
       return {
@@ -368,7 +368,7 @@ export async function getItemSalesHistory(itemName: string, limit = 1000) {
 
     // Get ALL income records at once
     const allRecords = await IncomeRecord.find({})
-    console.log(`Retrieved ${allRecords.length} total records for item history analysis`)
+    // console.log(`Retrieved ${allRecords.length} total records for item history analysis`)
 
     const salesHistory: any[] = []
 

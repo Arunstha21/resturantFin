@@ -123,7 +123,6 @@ class OfflineDB {
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        console.log(`Record added to ${storeName}:`, record.id)
         resolve()
       }
     })
@@ -160,7 +159,7 @@ class OfflineDB {
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
         const records = request.result || []
-        console.log(`Retrieved ${records.length} records from ${storeName}`)
+        // console.log(`Retrieved ${records.length} records from ${storeName}`)
         resolve(records)
       }
     })
@@ -189,7 +188,7 @@ class OfflineDB {
 
   async getQueuedOperations(): Promise<QueuedOperation[]> {
     const operations = (await this.getRecords("queuedOperations") as unknown) as QueuedOperation[]
-    console.log(`Retrieved ${operations.length} queued operations`)
+    // console.log(`Retrieved ${operations.length} queued operations`)
     return operations.sort((a, b) => a.timestamp - b.timestamp)
   }
 
@@ -241,7 +240,7 @@ class OfflineDB {
 
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        console.log(`API response cached for ${url}`)
+        // console.log(`API response cached for ${url}`)
         resolve()
       }
     })
@@ -259,7 +258,7 @@ class OfflineDB {
       request.onsuccess = () => {
         const cached = request.result
         if (cached && cached.expiry > Date.now()) {
-          console.log(`Serving cached API response for ${url}`)
+          // console.log(`Serving cached API response for ${url}`)
           resolve(cached.data)
         } else {
           if (cached) {

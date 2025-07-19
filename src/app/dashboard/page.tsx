@@ -39,9 +39,7 @@ export default function DashboardPage() {
   const fetchDashboardStats = async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching dashboard stats...")
       const data = await OfflineAPI.getDashboardStats(dateFilter)
-      console.log("Dashboard stats:", data)
 
       setStats(data)
       setIsFromCache(!!data._fromCache)
@@ -140,7 +138,10 @@ export default function DashboardPage() {
               <SelectContent>
                 <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="lastWeek">Last Week</SelectItem>
                 <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="lastMonth">Last Month</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
               </SelectContent>
             </Select>
 

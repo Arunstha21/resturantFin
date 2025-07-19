@@ -32,6 +32,23 @@ export function getDateRange(filter: string) {
         start: startOfMonth(now),
         end: endOfMonth(now),
       }
+    case "lastMonth":
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      return {
+        start: startOfMonth(lastMonth),
+        end: endOfMonth(lastMonth),
+      }
+    case "lastWeek":
+      const lastWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
+      return {
+        start: startOfWeek(lastWeek),
+        end: endOfWeek(lastWeek),
+      }
+    case "year":
+      return {
+        start: new Date(now.getFullYear(), 0, 1),
+        end: new Date(now.getFullYear(), 11, 31),
+      }
     default:
       return {
         start: startOfMonth(now),

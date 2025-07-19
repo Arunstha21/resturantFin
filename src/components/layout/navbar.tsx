@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Menu, X, BarChart3, FileText, DollarSign, LogOut, Users } from "lucide-react"
+import { Menu, BarChart3, FileText, DollarSign, LogOut, Users } from "lucide-react"
 import { usePathname } from "next/navigation"
 
 export function Navbar() {
@@ -22,18 +23,32 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const path = usePathname()
 
-  const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-    { name: "Records", href: "/dashboard/records", icon: DollarSign },
-    { name: "Reports", href: "/dashboard/reports", icon: FileText },
-    { name: "Menu", href: "/dashboard/menu-management", icon: FileText },
-    { name: "Due Accounts", href: "/dashboard/due-accounts", icon: DollarSign },
-    ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/dashboard/users", icon: Users } , { name: "Sales Analytics", href: "/dashboard/sales-analytics", icon: BarChart3 }] : []),
-  ]
+  // Memoize navigation items to prevent unnecessary re-renders
+  const navigation = useMemo(
+    () => [
+      { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+      { name: "Records", href: "/dashboard/records", icon: DollarSign },
+      { name: "Reports", href: "/dashboard/reports", icon: FileText },
+      { name: "Menu", href: "/dashboard/menu-management", icon: FileText },
+      { name: "Due Accounts", href: "/dashboard/due-accounts", icon: DollarSign },
+      ...(session?.user?.role === "admin" ? [{ name: "Users", href: "/dashboard/users", icon: Users }, { name: "Sales Analytics", href: "/dashboard/sales-analytics", icon: BarChart3 }] : []),
+    ],
+    [session?.user?.role],
+  )
+
+  // Optimized mobile menu close handler
+  const handleMobileMenuClose = useCallback(() => {
+    setIsMobileMenuOpen(false)
+  }, [])
+
+  // Memoize user initials
+  const userInitials = useMemo(() => {
+    return session?.user?.name?.charAt(0).toUpperCase() || "U"
+  }, [session?.user?.name])
 
   return (
-    <nav className="bg-background border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-background border-b sticky top-0 z-50">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="/dashboard" className="flex-shrink-0 flex items-center">
@@ -41,14 +56,17 @@ export function Navbar() {
               <span className="ml-2 text-xl font-bold">RestaurantFin</span>
             </Link>
 
+            {/* Desktop Navigation */}
             <div className="hidden md:ml-6 md:flex md:space-x-8">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center px-3 py-2 text-sm font-medium hover:x transition-colors ` +
-                    (path === item.href ? "text-foreground border-b-2 border-primary" :
-                      "hover:border-b-2 hover:border-primary hover:text-foreground text-muted-foreground")}
+                  className={`flex items-center px-3 py-2 text-sm font-medium hover:text-foreground transition-colors touch-manipulation ${
+                    path === item.href
+                      ? "text-foreground border-b-2 border-primary"
+                      : "hover:border-b-2 hover:border-primary text-muted-foreground"
+                  }`}
                 >
                   <item.icon className="h-4 w-4 mr-2" />
                   {item.name}
@@ -63,9 +81,9 @@ export function Navbar() {
             {session ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full touch-manipulation">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>{session.user?.name?.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{userInitials}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -78,7 +96,7 @@ export function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => signOut()}>
+                  <DropdownMenuItem onClick={() => signOut()} className="touch-manipulation">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
@@ -86,36 +104,45 @@ export function Navbar() {
               </DropdownMenu>
             ) : (
               <Link href="/auth/signin">
-                <Button>Sign In</Button>
+                <Button className="touch-manipulation">Sign In</Button>
               </Link>
             )}
 
+            {/* Mobile Menu Button */}
             <div className="md:hidden">
-              <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </Button>
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="sm" className="touch-manipulation">
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                  <nav className="flex flex-col gap-4">
+                    <div className="px-2 py-4">
+                      <h2 className="text-lg font-semibold">Navigation</h2>
+                    </div>
+                    {navigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={`flex items-center px-4 py-3 text-base font-medium rounded-lg transition-colors touch-manipulation ${
+                          path === item.href
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                        onClick={handleMobileMenuClose}
+                      >
+                        <item.icon className="h-5 w-5 mr-3" />
+                        {item.name}
+                      </Link>
+                    ))}
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
       </div>
-
-      {isMobileMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="flex items-center px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <item.icon className="h-5 w-5 mr-3" />
-                {item.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </nav>
   )
 }

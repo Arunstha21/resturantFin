@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Navbar } from "@/components/layout/navbar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,10 +12,21 @@ import { RecordsTable } from "@/components/records/components/records-table"
 import { IncomeDialog } from "@/components/records/income-record-dialog"
 import { ExpenseDialog } from "@/components/records/expense-record-dialog"
 import { DebugPanel } from "@/components/records/components/debug-pannel"
+import { getSession } from "next-auth/react"
 
 export default function RecordsPage() {
   const [activeTab, setActiveTab] = useState("income")
   const { isOnline, isSyncing, pendingOperations } = useOffline()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    sessionData()
+  }, [])
+
+  const sessionData = async () => {
+    const session = await getSession()
+    setIsAdmin(session?.user?.role === "admin")
+  }
 
   const {
     incomeRecords,
@@ -30,6 +41,7 @@ export default function RecordsPage() {
     handleExpenseCreate,
     handleExpenseUpdate,
     handleExpenseDelete,
+    fetchAllRecords,
   } = useRecordsManager()
 
   return (
@@ -93,10 +105,12 @@ export default function RecordsPage() {
               onRefresh={refreshData}
               onSuccess={handleIncomeUpdate}
               onDelete={handleIncomeDelete}
+              isAdmin={isAdmin}
               CreateDialog={({ onSuccess }) => <IncomeDialog mode="create" onSuccess={handleIncomeCreate} />}
               EditDialog={({ record, onSuccess }) => (
                 <IncomeDialog mode="edit" record={record} onSuccess={handleIncomeUpdate} />
               )}
+              fetchAllRecords={fetchAllRecords}
             />
           </TabsContent>
 

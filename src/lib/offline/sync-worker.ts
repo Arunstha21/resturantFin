@@ -300,9 +300,6 @@ export class SyncManager {
         await offlineDB.addRecord(storeName, record)
       }
 
-      console.log(
-        `Cached ${data.length} ${type} records from server, preserved ${unsyncedRecords.length} unsynced records`,
-      )
     } catch (error) {
       console.error(`Failed to cache ${type} data:`, error)
     }

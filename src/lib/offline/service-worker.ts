@@ -89,7 +89,7 @@ async function handleApiRequest(request: Request): Promise<Response> {
   const url = new URL(request.url)
 
   try {
-    console.log("Fetching from network:", url.pathname)
+    // console.log("Fetching from network:", url.pathname)
 
     // Try network first
     const networkResponse = await fetch(request.clone())
@@ -97,7 +97,7 @@ async function handleApiRequest(request: Request): Promise<Response> {
     // Cache successful responses
     if (networkResponse.ok && CACHEABLE_APIS.some((api) => url.pathname.startsWith(api))) {
       const cache = await caches.open(API_CACHE)
-      console.log("Caching API response:", url.pathname)
+      // console.log("Caching API response:", url.pathname)
       cache.put(request.clone(), networkResponse.clone())
     }
 

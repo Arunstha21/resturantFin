@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { showPromiseToast } from "@/lib/toast-utils"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { toast } from "sonner"
 import { expenseRecordSchema, type ExpenseRecordInput } from "@/lib/validations"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 import type { ExpenseRecord } from "@/types"
@@ -33,14 +33,7 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
   const [isLoading, setIsLoading] = useState(false)
   const { isOnline } = useOffline()
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-    reset,
-  } = useForm<ExpenseRecordInput>({
+  const form = useForm<ExpenseRecordInput>({
     resolver: zodResolver(expenseRecordSchema),
     defaultValues: record
       ? {
@@ -61,6 +54,7 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
           receiptNumber: "",
           notes: "",
         },
+    mode: "onChange",
   })
 
   const onSubmit = async (data: ExpenseRecordInput) => {
@@ -82,15 +76,11 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
           ? "Expense created successfully!"
           : "Expense created offline - will sync when online"
 
-      await showPromiseToast(Promise.resolve(result), {
-        loading: record ? "Updating expense..." : "Creating expense...",
-        success: successMessage,
-        error: "Something went wrong. Please try again.",
-      })
+      toast.success(successMessage)
 
       if (result?.success) {
         if (!record) {
-          reset({
+          form.reset({
             amount: 0,
             category: "",
             vendor: "",
@@ -104,6 +94,7 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
       }
     } catch (error) {
       console.error("Form submission error:", error)
+      toast.error("Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -118,77 +109,147 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
+            Changes will be saved locally and synced when you're back online.
           </p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              {...register("amount", { valueAsNumber: true })}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            {errors.amount && <p className="text-sm text-red-600">{errors.amount.message}</p>}
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {expenseCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={watch("category")} onValueChange={(value) => setValue("category", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {expenseCategories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.category && <p className="text-sm text-red-600">{errors.category.message}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="vendor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vendor/Supplier</FormLabel>
+                  <FormControl>
+                    <Input placeholder="ABC Food Supply Co." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="receiptNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Receipt/Invoice Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="INV-12345" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="vendor">Vendor/Supplier</Label>
-            <Input id="vendor" placeholder="ABC Food Supply Co." {...register("vendor")} />
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Fresh vegetables and meat supplies" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="date"
+                    {...field}
+                    value={field.value instanceof Date ? field.value.toISOString().split("T")[0] : field.value}
+                    onChange={(e) => field.onChange(new Date(e.target.value))}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes (Optional)</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Additional notes..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex gap-2 pt-4">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 touch-manipulation active:scale-95 transition-transform"
+            >
+              {isLoading ? "Saving..." : record ? "Update Expense" : "Create Expense"}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="receiptNumber">Receipt/Invoice Number</Label>
-            <Input id="receiptNumber" placeholder="INV-12345" {...register("receiptNumber")} />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Input id="description" placeholder="Fresh vegetables and meat supplies" {...register("description")} />
-          {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="date">Date</Label>
-          <Input id="date" type="date" {...register("date", { valueAsDate: true })} />
-          {errors.date && <p className="text-sm text-red-600">{errors.date.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="notes">Notes (Optional)</Label>
-          <Textarea id="notes" placeholder="Additional notes..." {...register("notes")} />
-        </div>
-
-        <div className="flex gap-2 pt-4">
-          <Button type="submit" disabled={isLoading} className="flex-1">
-            {isLoading ? "Saving..." : record ? "Update Expense" : "Create Expense"}
-          </Button>
-        </div>
-      </form>
+        </form>
+      </Form>
     </div>
   )
 }

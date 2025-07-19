@@ -35,6 +35,7 @@ export class OfflineAPI {
     }
   }
 
+
   static async createIncomeRecord(data: Partial<IncomeRecord>): Promise<{ success: boolean; record?: IncomeRecord }> {
     try {
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`

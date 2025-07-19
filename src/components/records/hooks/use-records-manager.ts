@@ -25,6 +25,7 @@ interface UseRecordsManagerReturn {
   handleExpenseCreate: () => Promise<void>
   handleExpenseUpdate: () => Promise<void>
   handleExpenseDelete: (id: string) => Promise<void>
+  fetchAllRecords: () => Promise<void>
 }
 
 export function useRecordsManager(): UseRecordsManagerReturn {
@@ -34,19 +35,34 @@ export function useRecordsManager(): UseRecordsManagerReturn {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  const fetchAllRecords = useCallback(async () => {
+    try {
+      const [incomeResponse, expenseResponse] = await Promise.all([
+        fetch("/api/income-records?limit=5000"),
+        fetch("/api/expense-records?limit=5000"),
+      ])
+
+      const incomeData = await incomeResponse.json()
+      const expenseData = await expenseResponse.json()
+
+      setIncomeRecords(incomeData.records || [])
+      setExpenseRecords(expenseData.records || [])
+    } catch (error) {
+      toast.error("Failed to fetch records")
+      console.error("Error fetching records:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   // Enhanced fetch with better error handling and debugging
-  const fetchRecords = useCallback(async (source = "unknown") => {
-    console.log(`🔄 Fetching records from: ${source}`)
+  const fetchRecords = useCallback(async () => {
 
     try {
       const [incomeData, expenseData] = await Promise.all([
         OfflineAPI.getIncomeRecords(),
         OfflineAPI.getExpenseRecords(),
       ])
-
-      console.log(
-        `✅ Fetched ${incomeData?.length || 0} income records and ${expenseData?.length || 0} expense records`,
-      )
 
       setIncomeRecords(incomeData || [])
       setExpenseRecords(expenseData || [])
@@ -63,7 +79,7 @@ export function useRecordsManager(): UseRecordsManagerReturn {
   useEffect(() => {
     const initialLoad = async () => {
       setIsLoading(true)
-      await fetchRecords("initial-load")
+      await fetchRecords()
       setIsLoading(false)
     }
     initialLoad()
@@ -80,19 +96,18 @@ export function useRecordsManager(): UseRecordsManagerReturn {
     // Add a small delay to ensure API operations complete
     await new Promise((resolve) => setTimeout(resolve, 200))
 
-    await fetchRecords("refresh")
+    await fetchRecords()
     setIsRefreshing(false)
   }, [fetchRecords])
 
   // Force refresh without debouncing
   const forceRefresh = useCallback(async () => {
-    console.log("🔄 Force refreshing data...")
     setIsRefreshing(true)
 
     // Longer delay for force refresh to ensure API consistency
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    await fetchRecords("force-refresh")
+    await fetchRecords()
     setIsRefreshing(false)
 
     console.log("✅ Force refresh completed")
@@ -100,21 +115,17 @@ export function useRecordsManager(): UseRecordsManagerReturn {
 
   // Income handlers with enhanced debugging
   const handleIncomeCreate = useCallback(async () => {
-    console.log("📝 Income record created - refreshing...")
     toast.success("Order created successfully!")
     await refreshData()
   }, [refreshData])
 
   const handleIncomeUpdate = useCallback(async () => {
-    console.log("✏️ Income record updated - refreshing...")
     toast.success("Order updated successfully!")
     await refreshData()
   }, [refreshData])
 
   const handleIncomeDelete = useCallback(
     async (id: string) => {
-      console.log(`🗑️ Deleting income record: ${id}`)
-
       try {
         // Handle group deletion
         if (id.startsWith("group_")) {
@@ -143,21 +154,17 @@ export function useRecordsManager(): UseRecordsManagerReturn {
 
   // Expense handlers with enhanced debugging
   const handleExpenseCreate = useCallback(async () => {
-    console.log("📝 Expense record created - refreshing...")
     toast.success("Expense created successfully!")
     await refreshData()
   }, [refreshData])
 
   const handleExpenseUpdate = useCallback(async () => {
-    console.log("✏️ Expense record updated - refreshing...")
     toast.success("Expense updated successfully!")
     await refreshData()
   }, [refreshData])
 
   const handleExpenseDelete = useCallback(
     async (id: string) => {
-      console.log(`🗑️ Deleting expense record: ${id}`)
-
       try {
         await OfflineAPI.deleteExpenseRecord(id)
         toast.success("Expense deleted successfully")
@@ -190,5 +197,6 @@ export function useRecordsManager(): UseRecordsManagerReturn {
     handleExpenseCreate,
     handleExpenseUpdate,
     handleExpenseDelete,
+    fetchAllRecords,
   }
 }

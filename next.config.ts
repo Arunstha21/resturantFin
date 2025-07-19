@@ -1,7 +1,19 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  // Mobile performance optimizations
+  experimental: {
+    optimizePackageImports: [
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "lucide-react",
+      "recharts",
+    ],
+  },
 
-export default nextConfig;
+  // Compress responses
+  compress: true,
+}
+
+export default nextConfig

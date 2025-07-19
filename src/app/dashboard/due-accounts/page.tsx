@@ -57,9 +57,7 @@ export default function DueAccountsPage() {
   const fetchDueAccounts = useCallback(async () => {
     setIsLoading(true)
     try {
-      console.log("Fetching due accounts...")
       const data = await OfflineAPI.getDueAccounts()
-      console.log("Due accounts fetched:", data)
 
       const accounts = Array.isArray(data) ? data : []
       const processedAccounts = accounts.map((account: any) => ({
@@ -75,7 +73,6 @@ export default function DueAccountsPage() {
       }))
       setDueAccounts(accounts)
       setDueAccountSummary(processedAccounts)
-      console.log("Due accounts state updated:", processedAccounts)
     } catch (error) {
       toast.error("Failed to fetch due accounts")
       console.error("Error fetching due accounts:", error)
