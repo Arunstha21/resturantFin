@@ -315,7 +315,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you're back online.
+            Changes will be saved locally and synced when you&apos;re back online.
           </p>
         </div>
       )}
@@ -840,7 +840,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
                 {totalPaid !== totalAmount && (
                   <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
-                    ⚠️ Payment amounts don't match the total. Please adjust the amounts.
+                    ⚠️ Payment amounts don&apos;t match the total. Please adjust the amounts.
                   </div>
                 )}
               </div>

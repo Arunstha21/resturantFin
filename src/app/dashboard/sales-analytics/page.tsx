@@ -106,14 +106,12 @@ export default function SalesAnalytics() {
   const [itemHistory, setItemHistory] = useState<any[]>([])
   const [priceHistory, setPriceHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
 
   const fetchSalesData = async (filter: string) => {
     setLoading(true)
-    setError(null)
     try {
       const result = await getSalesAnalytics(filter)
 
@@ -163,11 +161,12 @@ export default function SalesAnalytics() {
         }
         setSalesData(data as SalesData)
       } else {
-        setError(result.error || "Failed to fetch sales data")
+        console.error("Failed to fetch sales data:", result.error)
+        setSalesData(null)
       }
     } catch (error) {
-      console.error("Failed to fetch sales data:", error)
-      setError(error instanceof Error ? error.message : "Unknown error occurred")
+        console.error("Error fetching sales data:", error)
+        setSalesData(null)
     } finally {
       setLoading(false)
     }
@@ -337,7 +336,7 @@ export default function SalesAnalytics() {
           <div className="max-w-md mx-auto">
             <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-foreground mb-2">No sales data available</h3>
-            <p className="text-muted-foreground mb-6">We couldn't find any sales data to analyze</p>
+            <p className="text-muted-foreground mb-6">We couldn&apos;t find any sales data to analyze</p>
             <Button onClick={() => fetchSalesData(dateFilter)}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
@@ -638,7 +637,7 @@ export default function SalesAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {getFilteredItems().map((item, index) => {
+                  {getFilteredItems().map((item, ) => {
                     const priceVariation = getPriceVariation(item.allPrices)
                     const originalIndex = salesData.bestSellingItems.findIndex((i) => i._id === item._id)
 
