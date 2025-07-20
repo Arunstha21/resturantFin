@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Navbar } from "@/components/layout/navbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -162,7 +161,6 @@ export default function DueAccountsPage() {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin mr-3" />
@@ -183,7 +181,6 @@ export default function DueAccountsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <div>

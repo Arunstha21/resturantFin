@@ -28,7 +28,6 @@ import {
   Minus,
 } from "lucide-react"
 import { getSalesAnalytics, getItemSalesHistory, getItemPriceHistory } from "@/app/actions/sales-analytics"
-import { Navbar } from "@/components/layout/navbar"
 import {
   LineChart,
   Line,
@@ -312,7 +311,6 @@ export default function SalesAnalytics() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
@@ -327,7 +325,6 @@ export default function SalesAnalytics() {
   if (!salesData) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
         <div className="text-center py-16">
           <div className="max-w-md mx-auto">
             <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -359,7 +356,6 @@ export default function SalesAnalytics() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">

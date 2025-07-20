@@ -7,6 +7,9 @@ import "../globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { OfflineIndicator } from "@/components/offline/offline-indicator"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
+import { Navbar } from "@/components/layout/navbar"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -29,11 +32,13 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const serverSession = await getServerSession(authOptions)
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -45,6 +50,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <Navbar serverSession={serverSession} />
             {children}
             <Toaster />
             <OfflineIndicator />

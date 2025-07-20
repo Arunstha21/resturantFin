@@ -155,11 +155,10 @@ export default function ChiyaStoryMenu() {
                               </span>
                             </div>
                           ) : (
-                            <Image
-                              src={item.image ? item.image : "/images/placeholder.png"}
+                            <img
+                              src={item.image || "/placeholder.svg"}
                               alt={item.name}
-                              className="w-full h-48 sm:h-56 md:h-64 lg:h-72 object-cover"
-                              onError={() => handleImageError(item._id)}
+                              className="w-full h-32 object-cover rounded-md mb-3"
                             />
                           )}
                           <div className="absolute top-1 right-1 sm:top-2 sm:right-2 md:top-4 md:right-4">

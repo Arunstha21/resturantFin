@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Navbar } from "@/components/layout/navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -268,7 +267,6 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <div>

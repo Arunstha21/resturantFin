@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { Session } from "next-auth"
+import { signOut } from "next-auth/react"
 import Link from "next/link"
-import { useSession, signOut } from "next-auth/react"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 
 import {
   Menu,
@@ -48,11 +49,10 @@ const getNavigation = (role: string | undefined) => {
     : baseNavigation
 }
 
-
-export function Navbar() {
-  const { data: session } = useSession()
+export function Navbar({ serverSession }: { serverSession: Session | null }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
+  const session = serverSession
   const userRole = session?.user?.role
   const navigation = getNavigation(userRole)
 
@@ -65,8 +65,6 @@ export function Navbar() {
               <BarChart3 className="h-8 w-8 text-primary" />
               <span className="ml-2 text-xl font-bold">RestaurantFin</span>
             </Link>
-
-            {/* Desktop & Tablet Nav */}
             <div className="hidden sm:flex sm:space-x-4 md:ml-6">
               {navigation.map((item) => (
                 <Link
@@ -79,14 +77,13 @@ export function Navbar() {
                   }`}
                 >
                   <item.icon className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline md:hidden">{item.shortName}</span> {/* tablet */}
-                  <span className="hidden md:inline">{item.name}</span> {/* desktop */}
+                  <span className="hidden md:inline lg:hidden">{item.shortName}</span>
+                  <span className="hidden lg:inline">{item.name}</span>
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* Right Panel */}
           <div className="flex items-center space-x-4">
             <ModeToggle />
             {session ? (
@@ -118,8 +115,6 @@ export function Navbar() {
                 <Button>Sign In</Button>
               </Link>
             )}
-
-            {/* Mobile menu toggle */}
             <div className="sm:hidden">
               <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -129,7 +124,6 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="sm:hidden border-t">
           <div className="px-2 pt-2 pb-3 space-y-1">

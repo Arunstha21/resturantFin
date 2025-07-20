@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Navbar } from "@/components/layout/navbar"
 import { UserForm } from "@/components/users/user-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,7 +67,6 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">

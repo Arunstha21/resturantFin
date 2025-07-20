@@ -16,8 +16,6 @@ import { Plus, Edit, Trash2, IndianRupee, RefreshCw } from "lucide-react"
 import { MenuItem } from "@/types"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import { Navbar } from "@/components/layout/navbar"
-import Image from "next/image"
 
 const categories = ["Appetizers", "Beverages", "Main", "Snacks", "Others"]
 
@@ -144,7 +142,7 @@ export default function MenuManagement() {
 
   if (isLoading) {
     return (
-    <div className="min-h-screen bg-background"><Navbar />
+    <div className="min-h-screen bg-background">
         <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin mr-3" />
@@ -156,7 +154,6 @@ export default function MenuManagement() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
     <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -347,11 +344,11 @@ export default function MenuManagement() {
             </CardHeader>
             <CardContent>
               {item.image && (
-                <Image
-                  src={item.image || "/placeholder.svg"}
-                  alt={item.name}
-                  className="w-full h-32 object-cover rounded-md mb-3"
-                />
+              <img
+                src={item.image || "/placeholder.svg"}
+                alt={item.name}
+                className="w-full h-32 object-cover rounded-md mb-3"
+              />
               )}
               {item.description && (
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
