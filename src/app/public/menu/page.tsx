@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -159,6 +158,7 @@ export default function ChiyaStoryMenu() {
                               src={item.image || "/placeholder.svg"}
                               alt={item.name}
                               className="w-full h-32 object-cover rounded-md mb-3"
+                              onError={() => handleImageError(item._id)}
                             />
                           )}
                           <div className="absolute top-1 right-1 sm:top-2 sm:right-2 md:top-4 md:right-4">
