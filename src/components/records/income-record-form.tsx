@@ -12,19 +12,14 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "sonner"
-import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import { Plus, Trash2, Calculator, ChevronUp, ChevronDown, FileText } from "lucide-react"
-import type { IncomeRecord } from "@/types"
-import { formatCurrency } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
+import { OfflineAPI } from "@/lib/offline/offline-api"
+import { formatCurrency } from "@/lib/utils"
 import { useOffline } from "../../hooks/use-offline"
-
-interface IncomeRecordFormProps {
-  record?: IncomeRecord
-  onSuccess?: () => void
-}
+import type { IncomeRecord } from "@/types"
 
 const menuItems = [
   { name: "Milk Tea", price: 30 },
@@ -53,6 +48,11 @@ const menuItems = [
   { name: "Normal Hukka", price: 220 },
 ]
 
+interface IncomeRecordFormProps {
+  record?: IncomeRecord
+  onSuccess?: () => void
+}
+
 export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showDiscount, setShowDiscount] = useState(false)
@@ -62,7 +62,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [isSplitPayment, setIsSplitPayment] = useState(false)
   const [dueAccounts, setDueAccounts] = useState<any[]>([])
   const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
-
   const { isOnline } = useOffline()
 
   // Memoize default values to prevent unnecessary re-renders
@@ -73,8 +72,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         date: record.date instanceof Date ? record.date : new Date(record.date),
         discount: record.discount || 0,
         tip: record.tip || 0,
-        paymentMethod: record.paymentMethod || "cash",
-        paymentStatus: record.paymentStatus || "pending",
+        paymentMethod: (record.paymentMethod as "cash" | "digital" | "split") || "cash",
+        paymentStatus: (record.paymentStatus as "pending" | "completed") || "pending",
         cashAmount: record.cashAmount || 0,
         digitalAmount: record.digitalAmount || 0,
         tableNumber: record.tableNumber || "",
@@ -106,7 +105,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const form = useForm<IncomeRecordInput>({
     resolver: zodResolver(incomeRecordSchema),
     defaultValues,
-    mode: "onChange", // Optimize validation
+    mode: "onChange",
   })
 
   const { fields, append, remove, update } = useFieldArray({
@@ -114,7 +113,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     name: "items",
   })
 
-  // Debounced calculation to prevent excessive re-renders
+  // Enhanced calculation function with proper split payment handling
   const calculateTotals = useCallback(() => {
     const currentItems = form.getValues("items")
     if (!currentItems || currentItems.length === 0) return
@@ -130,17 +129,71 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     const discountAmount = showDiscount ? Number(form.getValues("discount")) || 0 : 0
     const tipAmount = showTip ? Number(form.getValues("tip")) || 0 : 0
     const total = subtotal - discountAmount + tipAmount
-
     form.setValue("totalAmount", Number(total.toFixed(2)))
 
+    // Handle split payment logic
     if (isSplitPayment) {
+      // Set payment method to split
+      form.setValue("paymentMethod", "split")
+
       const cashAmount = Number(form.getValues("cashAmount")) || 0
       const digitalAmount = Number(form.getValues("digitalAmount")) || 0
       const totalPaid = cashAmount + digitalAmount
 
-      form.setValue("paymentStatus", totalPaid >= total ? "completed" : "pending")
+      // Determine payment status based on total paid vs total amount
+      if (totalPaid >= total) {
+        form.setValue("paymentStatus", "completed")
+      } else if (totalPaid > 0) {
+        form.setValue("paymentStatus", "pending")
+      } else {
+        form.setValue("paymentStatus", "pending")
+      }
+    } else {
+      // Reset split payment amounts when not using split payment
+      form.setValue("cashAmount", 0)
+      form.setValue("digitalAmount", 0)
+
+      // Set payment method back to selected method if not split
+      const currentPaymentMethod = form.getValues("paymentMethod")
+      if (currentPaymentMethod === "split") {
+        form.setValue("paymentMethod", "cash")
+      }
     }
   }, [form, showDiscount, showTip, isSplitPayment])
+
+  // Handle split payment toggle
+  const handleSplitPaymentToggle = useCallback(
+    (checked: boolean) => {
+      setIsSplitPayment(checked)
+
+      if (checked) {
+        // When enabling split payment, set method to split and initialize amounts
+        form.setValue("paymentMethod", "split")
+        const totalAmount = form.getValues("totalAmount") || 0
+
+        // Initialize with reasonable defaults if amounts are zero
+        const currentCash = form.getValues("cashAmount") || 0
+        const currentDigital = form.getValues("digitalAmount") || 0
+
+        if (currentCash === 0 && currentDigital === 0 && totalAmount > 0) {
+          // Split evenly by default
+          const halfAmount = totalAmount / 2
+          form.setValue("cashAmount", Number(halfAmount.toFixed(2)))
+          form.setValue("digitalAmount", Number(halfAmount.toFixed(2)))
+        }
+      } else {
+        // When disabling split payment, reset to single payment method
+        form.setValue("paymentMethod", "cash")
+        form.setValue("cashAmount", 0)
+        form.setValue("digitalAmount", 0)
+        form.setValue("paymentStatus", "pending")
+      }
+
+      // Recalculate totals after toggle
+      setTimeout(calculateTotals, 50)
+    },
+    [form, calculateTotals],
+  )
 
   // Optimized effect with proper dependencies
   useEffect(() => {
@@ -224,7 +277,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         const existingItemIndex = currentItems.findIndex(
           (item) => item.name.toLowerCase() === menuItem.name.toLowerCase(),
         )
-
         if (existingItemIndex !== -1) {
           const existingItem = currentItems[existingItemIndex]
           update(existingItemIndex, {
@@ -257,11 +309,15 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   const onSubmit = async (data: IncomeRecordInput) => {
     setIsLoading(true)
-
     try {
+      // Prepare form data with proper split payment handling
       const formData = {
         ...data,
         totalAmount: Number(data.totalAmount) || 0,
+        // Ensure split payment data is properly included
+        paymentMethod: isSplitPayment ? "split" : data.paymentMethod,
+        cashAmount: isSplitPayment ? Number(data.cashAmount) || 0 : 0,
+        digitalAmount: isSplitPayment ? Number(data.digitalAmount) || 0 : 0,
       }
 
       let result
@@ -305,6 +361,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const digitalAmount = form.watch("digitalAmount") || 0
   const totalPaid = cashAmount + digitalAmount
   const remainingAmount = Math.max(0, totalAmount - totalPaid)
+  const paymentStatus = form.watch("paymentStatus")
 
   return (
     <div className="w-full space-y-6">
@@ -365,7 +422,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     const newValue = value === "none" ? "" : value
                     setSelectedDueAccount(newValue)
                     field.onChange(newValue)
-
                     if (newValue && newValue !== "") {
                       form.setValue("isDueAccount", true)
                       const account = dueAccounts.find((acc) => acc._id === newValue)
@@ -396,7 +452,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             )}
           />
 
-          {/* Quick Add Menu Items - Optimized for mobile */}
+          {/* Quick Add Menu Items */}
           <div className="space-y-2">
             <Label>Quick Add Menu Items</Label>
             <p className="text-sm text-muted-foreground">
@@ -408,7 +464,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                   (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
                 )
                 const currentQuantity = existingItem?.quantity || 0
-
                 return (
                   <Button
                     key={item.name}
@@ -416,7 +471,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => addMenuItem(item)}
-                    onMouseDown={(e) => e.preventDefault()} // Prevent focus on mouse down
+                    onMouseDown={(e) => e.preventDefault()}
                     className="justify-start text-left h-auto p-2 relative touch-manipulation active:scale-95 transition-transform"
                   >
                     <div className="w-full">
@@ -457,7 +512,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                 Add Custom Item
               </Button>
             </div>
-
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {fields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-10 gap-2 items-end p-3 border rounded-lg">
@@ -699,10 +753,17 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                 <span>{formatCurrency(form.watch("totalAmount") || 0)}</span>
               </div>
             </div>
-
             <div className="flex gap-2 pt-2">
-              <Badge variant={form.watch("paymentStatus") === "completed" ? "default" : "destructive"}>
-                {form.watch("paymentStatus") === "completed" ? "Payment Complete" : "Payment Pending"}
+              <Badge
+                variant={
+                  paymentStatus === "completed" ? "default" : paymentStatus === "pending" ? "destructive" : "secondary"
+                }
+              >
+                {paymentStatus === "completed"
+                  ? "Payment Complete"
+                  : paymentStatus === "pending"
+                    ? "Payment Pending"
+                    : "Payment Failed"}
               </Badge>
               {!isOnline && (
                 <Badge variant="outline" className="text-orange-600 border-orange-200">
@@ -715,11 +776,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
           {/* Payment Method Section */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="split-payment"
-                checked={isSplitPayment}
-                onCheckedChange={(checked) => setIsSplitPayment(checked as boolean)}
-              />
+              <Checkbox id="split-payment" checked={isSplitPayment} onCheckedChange={handleSplitPaymentToggle} />
               <Label htmlFor="split-payment" className="font-medium">
                 Split Payment (Cash + Digital)
               </Label>
@@ -814,7 +871,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     )}
                   />
                 </div>
-
                 <div className="bg-muted p-3 rounded space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Total Amount:</span>
@@ -837,10 +893,12 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     </div>
                   )}
                 </div>
-
-                {totalPaid !== totalAmount && (
+                {Math.abs(totalPaid - totalAmount) > 0.01 && (
                   <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
-                    ⚠️ Payment amounts don&apos;t match the total. Please adjust the amounts.
+                    ⚠️ Payment amounts don&apos;t match the total.
+                    {totalPaid < totalAmount
+                      ? ` ${formatCurrency(remainingAmount)} remaining.`
+                      : ` ${formatCurrency(totalPaid - totalAmount)} overpaid.`}
                   </div>
                 )}
               </div>
