@@ -198,11 +198,11 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       if (record.paymentMethod === "split") {
         setIsSplitPayment(true)
       }
-      if (record.isDueAccount && record.dueAccountId) {
+      if (record.isDueAccount && record.dueAccountId && dueAccounts.length > 0) {
         setSelectedDueAccount(record.dueAccountId)
       }
     }
-  }, [record])
+  }, [record, dueAccounts])
 
   // Optimized menu item addition with touch feedback
   const addMenuItem = useCallback(
