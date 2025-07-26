@@ -38,7 +38,7 @@ const menuItems = [
   { name: "Black Masala/Ginger Tea", price: 60 },
   { name: "Hot lemon (Honey & Ginger)", price: 80 },
   { name: "Sandwich with Fries", price: 100 },
-  { name: "French Fries", price: 80 },
+  { name: "French Fries", price: 110 },
   { name: "Current", price: 90 },
   { name: "Current with omlet", price: 120 },
   { name: "cookie", price: 20 },
@@ -46,6 +46,8 @@ const menuItems = [
   { name: "Cloud Hukka", price: 480 },
   { name: "Ice Coffee", price: 60 },
   { name: "Normal Hukka", price: 220 },
+  { name: "Hot Lemon", price: 40 },
+  { name: "Wai Wai Soup/Fry", price: 50}
 ]
 
 interface IncomeRecordFormProps {
