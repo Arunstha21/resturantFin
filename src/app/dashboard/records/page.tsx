@@ -135,11 +135,15 @@ export default function RecordsPage() {
         })
 
         const totalAmount = sortedOrders.reduce((sum, order) => {
-          if(order.paymentStatus === "pending") {
-              return sum + order.totalAmount;
-            } else {
-              return sum;
+          if (order.paymentStatus === "pending") {
+            if (order.paymentMethod === "split") {
+              const paidAmount = (order.cashAmount || 0) + (order.digitalAmount || 0);
+              const remainingAmount = order.totalAmount - paidAmount;
+              return sum + remainingAmount;
+            }
+            return sum + order.totalAmount;
           }
+          return sum;
         }, 0);
 
         const pendingOrders = sortedOrders.filter((order) => order.paymentStatus === "pending")
