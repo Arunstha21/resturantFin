@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { formatCurrency } from "@/lib/utils"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import {
   Users,
   ChevronDown,
@@ -17,13 +16,11 @@ import {
   Receipt,
   ExternalLink,
   RefreshCw,
-  WifiOff,
   Edit,
   Trash2,
 } from "lucide-react"
 import type { DueAccount, DueAccountSummary } from "@/types"
 import { toast } from "sonner"
-import { useOffline } from "@/hooks/use-offline"
 import { DueAccountDialog } from "@/components/due-accounts/due-account-dialog"
 import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
 import {
@@ -37,6 +34,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
+import { deleteDueAccount } from "@/app/actions/due-accounts"
+import { deleteIncomeRecord } from "@/app/actions/income-records"
 
 export default function DueAccountsPage() {
   const [dueAccounts, setDueAccounts] = useState<DueAccount[]>([])
@@ -46,7 +45,6 @@ export default function DueAccountsPage() {
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
   const [mounted, setMounted] = useState(false)
 
-  const { isOnline, isSyncing, pendingOperations } = useOffline()
 
   useEffect(() => {
     setMounted(true)
@@ -56,9 +54,11 @@ export default function DueAccountsPage() {
   const fetchDueAccounts = useCallback(async () => {
     setIsLoading(true)
     try {
-      const data = await OfflineAPI.getDueAccounts()
+      const data = await fetch("/api/due-accounts");
+      const accountsResponse = await data.json();
+      const accountsData = accountsResponse.accounts || [];
 
-      const accounts = Array.isArray(data) ? data : []
+      const accounts = Array.isArray(accountsData) ? accountsData : []
       const processedAccounts = accounts.map((account: any) => ({
         ...account,
         _id: account._id || account.id || "",
@@ -91,12 +91,9 @@ export default function DueAccountsPage() {
 
   const handleDeleteAccount = async (accountId: string, accountName: string) => {
     try {
-      await OfflineAPI.deleteDueAccount(accountId)
+      await deleteDueAccount(accountId)
 
-      const successMessage = isOnline
-        ? `Customer account "${accountName}" deleted successfully!`
-        : `Customer account "${accountName}" deleted offline - will sync when online`
-      toast.success(successMessage)
+      toast.success(`Customer account "${accountName}" deleted successfully!`)
 
       // Immediately update the local state to remove the deleted account
       setDueAccountSummary((prev) => prev.filter((account) => account._id !== accountId))
@@ -113,10 +110,9 @@ export default function DueAccountsPage() {
 
   const handleDeleteOrder = async (orderId: string) => {
     try {
-      await OfflineAPI.deleteIncomeRecord(orderId)
+      await deleteIncomeRecord(orderId)
 
-      const successMessage = isOnline ? "Order deleted successfully!" : "Order deleted offline - will sync when online"
-      toast.success(successMessage)
+      toast.success("Order deleted successfully!")
 
       // Refresh the due accounts to reflect the changes
       setTimeout(async () => {
@@ -185,26 +181,6 @@ export default function DueAccountsPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Due Accounts</h1>
-            {/* Status indicators */}
-            <div className="flex items-center gap-2 mt-2">
-              {!isOnline && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  Offline Mode
-                </Badge>
-              )}
-              {isSyncing && (
-                <Badge variant="outline" className="text-blue-600 border-blue-200">
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Syncing
-                </Badge>
-              )}
-              {pendingOperations > 0 && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  {pendingOperations} Pending Sync
-                </Badge>
-              )}
-            </div>
           </div>
           <DueAccountDialog onSuccess={handleAccountSuccess} mode="create" />
         </div>

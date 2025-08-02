@@ -10,9 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "sonner"
 import { expenseRecordSchema, type ExpenseRecordInput } from "@/lib/validations"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import type { ExpenseRecord } from "@/types"
-import { useOffline } from "../../hooks/use-offline"
+import { createExpenseRecord, updateExpenseRecord } from "@/app/actions/expense-records"
 
 interface ExpenseRecordFormProps {
   record?: ExpenseRecord
@@ -31,7 +30,6 @@ const expenseCategories = [
 
 export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const { isOnline } = useOffline()
 
   const form = useForm<ExpenseRecordInput>({
     resolver: zodResolver(expenseRecordSchema),
@@ -63,20 +61,12 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
     try {
       let result
       if (record) {
-        result = await OfflineAPI.updateExpenseRecord(record._id, data)
+        result = await updateExpenseRecord(record._id, data)
       } else {
-        result = await OfflineAPI.createExpenseRecord(data)
+        result = await createExpenseRecord(data)
       }
 
-      const successMessage = record
-        ? isOnline
-          ? "Expense updated successfully!"
-          : "Expense updated offline - will sync when online"
-        : isOnline
-          ? "Expense created successfully!"
-          : "Expense created offline - will sync when online"
-
-      toast.success(successMessage)
+      toast.success("Expense record saved successfully!")
 
       if (result?.success) {
         if (!record) {
@@ -102,18 +92,6 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
 
   return (
     <div className="space-y-6">
-      {/* Offline indicator */}
-      {!isOnline && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-orange-700">
-            <span className="text-sm font-medium">Working Offline</span>
-          </div>
-          <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
-          </p>
-        </div>
-      )}
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

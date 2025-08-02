@@ -16,10 +16,9 @@ import { Plus, Trash2, Calculator, ChevronUp, ChevronDown, FileText } from "luci
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import { formatCurrency } from "@/lib/utils"
-import { useOffline } from "../../hooks/use-offline"
 import type { IncomeRecord } from "@/types"
+import { createIncomeRecord, updateIncomeRecord } from "@/app/actions/income-records"
 
 const menuItems = [
   { name: "Milk Tea", price: 30 },
@@ -64,7 +63,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [isSplitPayment, setIsSplitPayment] = useState(false)
   const [dueAccounts, setDueAccounts] = useState<any[]>([])
   const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
-  const { isOnline } = useOffline()
 
   // Memoize default values to prevent unnecessary re-renders
   const defaultValues = useMemo((): IncomeRecordInput => {
@@ -222,7 +220,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     let isMounted = true
     const fetchDueAccounts = async () => {
       try {
-        const accounts = await OfflineAPI.getDueAccounts()
+        const response = await fetch("/api/due-accounts");
+        const { accounts } = await response.json();
         if (isMounted) {
           setDueAccounts(accounts || [])
         }
@@ -324,17 +323,11 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
       let result
       if (record) {
-        result = await OfflineAPI.updateIncomeRecord(record._id, formData)
-        const successMessage = isOnline
-          ? "Order updated successfully!"
-          : "Order updated offline - will sync when online"
-        toast.success(successMessage)
+        result = await updateIncomeRecord(record._id, formData)
+        toast.success("Order updated successfully!")
       } else {
-        result = await OfflineAPI.createIncomeRecord(formData)
-        const successMessage = isOnline
-          ? "Order created successfully!"
-          : "Order created offline - will sync when online"
-        toast.success(successMessage)
+        result = await createIncomeRecord(formData)
+        toast.success("Order created successfully!")
       }
 
       if (result?.success) {
@@ -367,18 +360,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   return (
     <div className="w-full space-y-6">
-      {/* Offline indicator */}
-      {!isOnline && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-orange-700">
-            <span className="text-sm font-medium">Working Offline</span>
-          </div>
-          <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
-          </p>
-        </div>
-      )}
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 w-full">
           {/* Order Details */}
@@ -767,11 +748,6 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                     ? "Payment Pending"
                     : "Payment Failed"}
               </Badge>
-              {!isOnline && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  Offline
-                </Badge>
-              )}
             </div>
           </div>
 

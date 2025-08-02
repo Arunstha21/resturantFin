@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Plus, Edit, Trash2, IndianRupee, RefreshCw } from "lucide-react"
 import { MenuItem } from "@/types"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { createMenuItem, deleteMenuItem, updateMenuItem } from "@/app/actions/menu-items"
 
 const categories = ["Appetizers", "Beverages", "Main", "Snacks", "Others"]
 
@@ -43,7 +43,7 @@ export default function MenuManagement() {
   const fetchMenuItems = useCallback(async () => {
     try {
       setIsLoading(true)
-      const items = await OfflineAPI.getMenuItems()
+      const items = await fetch("/api/menu-items").then((res) => res.json())
       setMenuItems(items)
     } catch (error) {
       console.error("Error fetching menu items:", error)
@@ -72,9 +72,9 @@ export default function MenuManagement() {
       }
 
       if (editingItem) {
-        await OfflineAPI.updateMenuItem(editingItem._id, menuItemData)
+        await updateMenuItem(editingItem._id, menuItemData)
       } else {
-        await OfflineAPI.createMenuItem(menuItemData)
+        await createMenuItem(menuItemData)
       }
 
       setIsDialogOpen(false)
@@ -101,7 +101,7 @@ export default function MenuManagement() {
 
   const handleDelete = async (id: string) => {
     try {
-      await OfflineAPI.deleteMenuItem(id)
+      await deleteMenuItem(id)
       await fetchMenuItems()
     } catch (error) {
       console.error("Error deleting menu item:", error)
@@ -117,7 +117,7 @@ export default function MenuManagement() {
             return
         }
       updateItem.isAvailable = isAvailable
-      await OfflineAPI.updateMenuItem(id, updateItem)
+      await updateMenuItem(id, updateItem)
       await fetchMenuItems()
     } catch (error) {
       console.error("Error toggling menu item availability:", error)
@@ -293,11 +293,6 @@ export default function MenuManagement() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <CardTitle className="text-lg">{item.name}</CardTitle>
-                    {item._offline && (
-                      <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800">
-                        Offline
-                      </Badge>
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch

@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "sonner"
 import { dueAccountSchema, type DueAccountInput } from "@/lib/validations"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import type { DueAccount } from "@/types"
-import { useOffline } from "@/hooks/use-offline"
+import { createDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
 
 interface DueAccountFormProps {
   account?: DueAccount
@@ -19,7 +18,6 @@ interface DueAccountFormProps {
 
 export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const { isOnline } = useOffline()
 
   const form = useForm<DueAccountInput>({
     resolver: zodResolver(dueAccountSchema),
@@ -43,17 +41,11 @@ export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
     try {
       let result
       if (account) {
-        result = await OfflineAPI.updateDueAccount(account._id, data)
-        const successMessage = isOnline
-          ? "Customer account updated successfully!"
-          : "Customer account updated offline - will sync when online"
-        toast.success(successMessage)
+        result = await updateDueAccount(account._id, data)
+        toast.success("Customer account updated successfully!")
       } else {
-        result = await OfflineAPI.createDueAccount(data)
-        const successMessage = isOnline
-          ? "Customer account created successfully!"
-          : "Customer account created offline - will sync when online"
-        toast.success(successMessage)
+        result = await createDueAccount(data)
+        toast.success("Customer account created successfully!")
       }
 
       if (result?.success) {
@@ -76,17 +68,6 @@ export function DueAccountForm({ account, onSuccess }: DueAccountFormProps) {
 
   return (
     <div className="space-y-6">
-      {/* Offline indicator */}
-      {!isOnline && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-orange-700">
-            <span className="text-sm font-medium">Working Offline</span>
-          </div>
-          <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
-          </p>
-        </div>
-      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

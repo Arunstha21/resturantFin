@@ -5,7 +5,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { SessionProvider } from "@/components/session-provider"
 import "../globals.css"
 import { Toaster } from "@/components/ui/sonner"
-import { OfflineIndicator } from "@/components/offline/offline-indicator"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Navbar } from "@/components/layout/navbar"
 import { getServerSession } from "next-auth"
@@ -53,7 +52,6 @@ export default async function RootLayout({
             <Navbar serverSession={serverSession} />
             {children}
             <Toaster />
-            <OfflineIndicator />
             <InstallPrompt />
           </ThemeProvider>
         </SessionProvider>

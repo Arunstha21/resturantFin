@@ -22,7 +22,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency } from "@/lib/utils"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import {
   Trash2,
   Search,
@@ -35,7 +34,6 @@ import {
   ChevronsRight,
   Banknote,
   Smartphone,
-  WifiOff,
   RefreshCw,
   ChevronDown,
   ChevronRightIcon,
@@ -55,7 +53,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useOffline } from "@/hooks/use-offline"
+import { deleteIncomeRecord } from "@/app/actions/income-records"
 
 // Enhanced type for grouped records
 interface GroupedIncomeRecord extends IncomeRecord {
@@ -79,8 +77,6 @@ export default function RecordsPage() {
   const [expenseColumnFilters, setExpenseColumnFilters] = useState<ColumnFiltersState>([])
   const [expenseGlobalFilter, setExpenseGlobalFilter] = useState("")
 
-  const { isOnline, isSyncing, pendingOperations } = useOffline()
-
   useEffect(() => {
     fetchRecords()
   }, [])
@@ -88,13 +84,18 @@ export default function RecordsPage() {
   const fetchRecords = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [incomeData, expenseData] = await Promise.all([
-        OfflineAPI.getIncomeRecords(),
-        OfflineAPI.getExpenseRecords(),
+      const [incomeDataRes, expenseDataRes] = await Promise.all([
+        fetch("/api/income-records"),
+        fetch("/api/expense-records"),
       ])
-      
-      setIncomeRecords(incomeData || [])
-      setExpenseRecords(expenseData || [])
+      const incomeData = await incomeDataRes.json()
+      const incomeRecords: IncomeRecord[] = incomeData.records || []
+
+      const expenseData = await expenseDataRes.json()
+      const expenseRecords: ExpenseRecord[] = expenseData.records || []
+
+      setIncomeRecords(incomeRecords)
+      setExpenseRecords(expenseRecords)
     } catch (error) {
       toast.error("Failed to fetch records")
       console.error("Error fetching records:", error)
@@ -221,28 +222,24 @@ export default function RecordsPage() {
         )
 
         // Delete all orders in the group
-        await Promise.all(groupOrders.map((order) => OfflineAPI.deleteIncomeRecord(order._id)))
+        await Promise.all(groupOrders.map((order) => deleteIncomeRecord(order._id)))
 
         // Update local state
         // setIncomeRecords(
         //   incomeRecords.filter((record) => !(record.isDueAccount && record.dueAccountId === dueAccountId)),
         // )
 
-        const message = isOnline
-          ? `${groupOrders.length} orders deleted successfully`
-          : `${groupOrders.length} orders deleted offline - will sync when online`
-        toast.success(message)
+        toast.success(`${groupOrders.length} orders deleted successfully`)
         await fetchRecords()
         return
       }
 
       // Handle individual order deletion
       const actualId = id.startsWith("child_") ? id.replace("child_", "") : id
-      await OfflineAPI.deleteIncomeRecord(actualId)
+      await deleteIncomeRecord(actualId)
       setIncomeRecords(incomeRecords.filter((record) => record._id !== actualId))
 
-      const message = isOnline ? "Order deleted successfully" : "Order deleted offline - will sync when online"
-      toast.success(message)
+      toast.success("Order deleted successfully")
       await fetchRecords()
     } catch (error) {
       toast.error("Failed to delete order")
@@ -252,11 +249,10 @@ export default function RecordsPage() {
 
   const handleDeleteExpense = async (id: string) => {
     try {
-      await OfflineAPI.deleteExpenseRecord(id)
+      await deleteIncomeRecord(id);
       setExpenseRecords(expenseRecords.filter((record) => record._id !== id))
 
-      const message = isOnline ? "Expense deleted successfully" : "Expense deleted offline - will sync when online"
-      toast.success(message)
+      toast.success("Expense deleted successfully")
 
       await fetchRecords()
     } catch (error) {
@@ -324,12 +320,6 @@ export default function RecordsPage() {
               {record.isDueAccount && !record.isGroup && (
                 <Badge variant="outline" className="text-blue-600 border-blue-200">
                   Due Account
-                </Badge>
-              )}
-              {record._offline && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  Offline
                 </Badge>
               )}
             </div>
@@ -574,18 +564,11 @@ export default function RecordsPage() {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ getValue, row }) => {
+        cell: ({ getValue }) => {
           const value = getValue() as string
-          const record = row.original
           return (
             <div className="flex items-center gap-2">
               <span className="font-medium">{value}</span>
-              {record._offline && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  Offline
-                </Badge>
-              )}
             </div>
           )
         },
@@ -811,26 +794,6 @@ export default function RecordsPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Financial Records</h1>
-            {/* Status indicators */}
-            <div className="flex items-center gap-2 mt-2">
-              {!isOnline && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  Offline Mode
-                </Badge>
-              )}
-              {isSyncing && (
-                <Badge variant="outline" className="text-blue-600 border-blue-200">
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Syncing
-                </Badge>
-              )}
-              {pendingOperations > 0 && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  {pendingOperations} Pending Sync
-                </Badge>
-              )}
-            </div>
           </div>
         </div>
 

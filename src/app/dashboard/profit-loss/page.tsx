@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { CalendarIcon, Download, TrendingUp, TrendingDown, DollarSign, Receipt, Clock } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
-import { useOffline } from "@/hooks/use-offline"
 import { toast } from "sonner"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 
@@ -54,9 +53,6 @@ export default function ProfitLossPage() {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([])
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([])
   const [completedIncomeRecords, setCompletedIncomeRecords] = useState<IncomeRecord[]>([])
-
-  const { isOnline } = useOffline()
-
   // Calculate date range based on selection
   const getDateRange = useMemo(() => {
     const now = new Date()
@@ -340,16 +336,6 @@ export default function ProfitLossPage() {
           </Button>
         </div>
       </div>
-
-      {/* Offline indicator */}
-      {!isOnline && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-orange-700">
-            <span className="text-sm font-medium">Working Offline</span>
-          </div>
-          <p className="text-xs text-orange-600 mt-1">Data shown is from local storage and may not be up to date.</p>
-        </div>
-      )}
 
       {/* Date Range Selector */}
       <Card>

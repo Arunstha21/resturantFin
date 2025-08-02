@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "150")
+    const limit = Number.parseInt(searchParams.get("limit") || "1000")
     const skip = (page - 1) * limit
 
     let query = {}

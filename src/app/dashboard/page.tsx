@@ -6,13 +6,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/utils"
-import { TrendingUp, TrendingDown, DollarSign, Receipt, CreditCard, RefreshCw, WifiOff, Database } from "lucide-react"
+import { TrendingUp, TrendingDown, DollarSign, Receipt, CreditCard, RefreshCw } from "lucide-react"
 import type { ChartData, DashboardStats } from "@/types"
 import { toast } from "sonner"
-import { useOffline } from "@/hooks/use-offline"
-import { OfflineAPI } from "@/lib/offline/offline-api"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getChartData } from "../actions/dashboard"
+import { getChartData, getDashboardStats } from "../actions/dashboard"
 import { FinancialChart } from "@/components/dashboard/financial-chart"
 
 export default function DashboardPage() {
@@ -27,9 +25,7 @@ export default function DashboardPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState("month")
-  const [isFromCache, setIsFromCache] = useState(false)
 
-  const { isOnline, isSyncing, pendingOperations } = useOffline()
 
   useEffect(() => {
     fetchDashboardStats()
@@ -38,10 +34,9 @@ export default function DashboardPage() {
   const fetchDashboardStats = async () => {
     setIsLoading(true)
     try {
-      const data = await OfflineAPI.getDashboardStats(dateFilter)
+      const data = await getDashboardStats(dateFilter)
 
       setStats(data)
-      setIsFromCache(!!data._fromCache)
     } catch (error) {
       console.error("Error fetching dashboard stats:", error)
       toast.error("Failed to fetch dashboard data")
@@ -100,32 +95,6 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
-            {/* Status indicators */}
-            <div className="flex items-center gap-2 mt-2">
-              {!isOnline && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  Offline Mode
-                </Badge>
-              )}
-              {isSyncing && (
-                <Badge variant="outline" className="text-blue-600 border-blue-200">
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Syncing
-                </Badge>
-              )}
-              {pendingOperations > 0 && (
-                <Badge variant="outline" className="text-orange-600 border-orange-200">
-                  {pendingOperations} Pending Sync
-                </Badge>
-              )}
-              {isFromCache && (
-                <Badge variant="outline" className="text-blue-600 border-blue-200">
-                  <Database className="h-3 w-3 mr-1" />
-                  Cached Data
-                </Badge>
-              )}
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -149,20 +118,6 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-
-        {/* Offline Notice */}
-        {!isOnline && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-2 text-orange-700">
-              <WifiOff className="h-5 w-5" />
-              <span className="font-medium">Working Offline</span>
-            </div>
-            <p className="text-sm text-orange-600 mt-1">
-              Dashboard data is from local storage. Connect to the internet to get the latest updates.
-            </p>
-          </div>
-        )}
-
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <RefreshCw className="h-8 w-8 animate-spin mr-3" />
@@ -304,21 +259,9 @@ export default function DashboardPage() {
                     <span>
                       Data for: {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : "This Month"}
                     </span>
-                    {isFromCache && (
-                      <Badge variant="outline" className="text-xs">
-                        <Database className="h-3 w-3 mr-1" />
-                        From Cache
-                      </Badge>
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span>Last updated: {new Date().toLocaleTimeString()}</span>
-                    {!isOnline && (
-                      <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
-                        <WifiOff className="h-3 w-3 mr-1" />
-                        Offline
-                      </Badge>
-                    )}
                   </div>
                 </div>
               </CardContent>
