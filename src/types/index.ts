@@ -48,7 +48,7 @@ export interface User {
   _id: string
   name: string
   email: string
-  role: "admin" | "manager"
+  role: "admin" | "manager" | "staff"
   isActive: boolean
   createdAt: Date | string
   updatedAt: Date | string

@@ -128,6 +128,7 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
                     <SelectContent>
                       <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

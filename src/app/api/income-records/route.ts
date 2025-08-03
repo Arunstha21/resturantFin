@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     // Assuming the session contains role information
     const userRole = session.user.role // You might need to adjust this based on your session structure
 
-    if (!userRole || !["admin", "manager"].includes(userRole.toLowerCase())) {
+    if (!userRole || !["admin", "manager", "staff"].includes(userRole.toLowerCase())) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
     }
 

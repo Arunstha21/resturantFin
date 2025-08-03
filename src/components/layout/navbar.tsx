@@ -28,6 +28,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
+const staffNavigation = [
+  { name: "Records", shortName: "Rec", href: "/dashboard/records", icon: DollarSign },
+  { name: "Due Accounts", shortName: "Due", href: "/dashboard/due-accounts", icon: DollarSign },
+]
+
 const baseNavigation = [
   { name: "Dashboard", shortName: "Dash", href: "/dashboard", icon: BarChart3 },
   { name: "Records", shortName: "Rec", href: "/dashboard/records", icon: DollarSign },
@@ -45,7 +50,9 @@ const getNavigation = (role: string | undefined) => {
   return role === "admin"
     ? [...baseNavigation, ...adminExtra]
     : role === "manager"
-    ? baseNavigation.filter((item) => item.name !== "Menu")
+    ? baseNavigation.filter((item) => item.name !== "Menu") 
+    : role === "staff"
+    ? staffNavigation
     : baseNavigation
 }
 

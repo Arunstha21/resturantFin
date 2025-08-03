@@ -393,7 +393,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               <div className="max-h-48 overflow-y-auto space-y-4">
                 {/* Popular Items at the top */}
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-neutral-950 text-blue-900">
+                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-neutral-950 text-white">
                     Popular Items
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -547,125 +547,143 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                 const isEmptyItem = !watchedItems[index]?.name || watchedItems[index]?.name === ""
                 const isFromMenu = watchedItems[index]?.name && watchedItems[index]?.price > 0 && !isEmptyItem
                 const isEditing = editingItems.has(index)
-                const canEdit = isFromMenu && !isEditing
-                const shouldShowReadonly = isFromMenu && !isEditing || false
+                const shouldShowReadonly = isFromMenu && !isEditing || isEmptyItem
 
                 return (
                   <div
                     key={field.id}
-                    className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg"
+                    className="border rounded-lg p-3 space-y-3"
                     data-menu-added={isFromMenu ? "true" : "false"}
                   >
-                    <div className="col-span-4">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.name`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs">Item</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Item name"
-                                {...field}
-                                onFocus={(e) => {
-                                  // Allow focus only for manual items or when editing
-                                  if (shouldShowReadonly) {
-                                    e.target.blur()
-                                  }
-                                }}
-                                className={shouldShowReadonly ? "bg-gray-50 cursor-default select-none" : ""}
-                                readOnly={shouldShowReadonly}
-                                tabIndex={shouldShowReadonly ? -1 : 0}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.quantity`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs">Qty</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                inputMode="numeric"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.price`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs">Price</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                onFocus={(e) => {
-                                  if (shouldShowReadonly) {
-                                    e.target.blur()
-                                  }
-                                }}
-                                readOnly={shouldShowReadonly}
-                                tabIndex={shouldShowReadonly ? -1 : 0}
-                                className={shouldShowReadonly ? "bg-gray-50 cursor-default select-none" : ""}
-                                inputMode={shouldShowReadonly ? "none" : "decimal"}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs">Total</Label>
-                      <div className="text-sm font-medium py-2 px-2 bg-muted rounded mt-1">
-                        {formatCurrency((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.price || 0))}
+                    {/* Row 1: Item Name, Qty, Price */}
+                    <div className="grid grid-cols-12 gap-3 items-end">
+                      {/* Item Name */}
+                      <div className="col-span-6">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium">Item Name</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Item name"
+                                  {...field}
+                                  onFocus={(e) => {
+                                    // Allow focus only for manual items or when editing
+                                    if (shouldShowReadonly) {
+                                      e.target.blur()
+                                    }
+                                  }}
+                                  className={`text-sm h-9 ${shouldShowReadonly ? "bg-gray-50 cursor-default select-none" : ""}`}
+                                  readOnly={shouldShowReadonly}
+                                  tabIndex={shouldShowReadonly ? -1 : 0}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="col-span-3">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium">Quantity</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                  inputMode="numeric"
+                                  className="text-center text-sm h-9 font-medium"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Price */}
+                      <div className="col-span-3">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.price`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium">Price</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                  onFocus={(e) => {
+                                    if (shouldShowReadonly) {
+                                      e.target.blur()
+                                    }
+                                  }}
+                                  readOnly={shouldShowReadonly}
+                                  tabIndex={shouldShowReadonly ? -1 : 0}
+                                  className={`text-sm h-9 ${shouldShowReadonly ? "bg-gray-50 cursor-default select-none" : ""}`}
+                                  inputMode={shouldShowReadonly ? "none" : "decimal"}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     </div>
-                    <div className="col-span-2">
-                      <div className="flex gap-1 mt-6">
-                        {canEdit && (
+
+                    {/* Row 2: Total, Edit, Delete */}
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                      {/* Total */}
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs font-medium text-muted-foreground">Total:</Label>
+                        <div className="text-lg font-bold text-green-600">
+                          {formatCurrency((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.price || 0))}
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex gap-2">
+                        {/* Always show edit button for items with content, regardless of source */}
+                        {!isEmptyItem && !isEditing && (
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => toggleEditItem(index)}
-                            className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50 h-8"
                             title="Edit this item"
                           >
-                            <Edit3 className="h-3 w-3" />
+                            <Edit3 className="h-4 w-4 mr-1" />
+                            Edit
                           </Button>
                         )}
+
                         {isEditing && (
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => stopEditingItem(index)}
-                            className="flex-1 text-green-600 border-green-200 hover:bg-green-50"
+                            className="text-green-600 border-green-200 hover:bg-green-50 h-8"
                             title="Stop editing"
                           >
-                            <Check className="h-3 w-3" />
+                            <Check className="h-4 w-4 mr-1" />
+                            Done
                           </Button>
                         )}
+
                         <Button
                           type="button"
                           variant="outline"
@@ -681,10 +699,11 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                             })
                           }}
                           disabled={fields.length === 1 && isEmptyItem}
-                          className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                          className="text-red-600 border-red-200 hover:bg-red-50 h-8"
                           title="Remove item"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
                         </Button>
                       </div>
                     </div>
