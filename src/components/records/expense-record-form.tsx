@@ -19,7 +19,7 @@ interface ExpenseRecordFormProps {
   onSuccess?: () => void
 }
 
-const expenseCategories = [
+const EXPENSE_CATEGORIES = [
   "Food & Ingredients",
   "Staff Salaries",
   "Rent & Utilities",
@@ -35,48 +35,27 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
 
   const form = useForm<ExpenseRecordInput>({
     resolver: zodResolver(expenseRecordSchema),
-    defaultValues: record
-      ? {
-          amount: record.amount,
-          category: record.category,
-          vendor: record.vendor || "",
-          description: record.description,
-          date: new Date(record.date),
-          receiptNumber: record.receiptNumber || "",
-          notes: record.notes || "",
-        }
-      : {
-          amount: 0,
-          category: "",
-          vendor: "",
-          description: "",
-          date: new Date(),
-          receiptNumber: "",
-          notes: "",
-        },
+    defaultValues: {
+      amount: record?.amount || 0,
+      category: record?.category || "",
+      vendor: record?.vendor || "",
+      description: record?.description || "",
+      date: record?.date ? new Date(record.date) : new Date(),
+      receiptNumber: record?.receiptNumber || "",
+      notes: record?.notes || "",
+    },
     mode: "onChange",
   })
 
   const onSubmit = async (data: ExpenseRecordInput) => {
     setIsLoading(true)
-
     try {
-      let result
-      if (record) {
-        result = await OfflineAPI.updateExpenseRecord(record._id, data)
-      } else {
-        result = await OfflineAPI.createExpenseRecord(data)
-      }
+      const result = record
+        ? await OfflineAPI.updateExpenseRecord(record._id, data)
+        : await OfflineAPI.createExpenseRecord(data)
 
-      const successMessage = record
-        ? isOnline
-          ? "Expense updated successfully!"
-          : "Expense updated offline - will sync when online"
-        : isOnline
-          ? "Expense created successfully!"
-          : "Expense created offline - will sync when online"
-
-      toast.success(successMessage)
+      const message = record ? "Expense updated" : "Expense created"
+      toast.success(`${message} ${isOnline ? "successfully!" : "offline - will sync when online"}`)
 
       if (result?.success) {
         if (!record) {
@@ -102,14 +81,13 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
 
   return (
     <div className="space-y-6">
-      {/* Offline indicator */}
       {!isOnline && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
           <div className="flex items-center gap-2 text-orange-700">
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
+            Changes will be saved locally and synced when you're back online.
           </p>
         </div>
       )}
@@ -136,7 +114,6 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="category"
@@ -150,7 +127,7 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {expenseCategories.map((category) => (
+                      {EXPENSE_CATEGORIES.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -162,6 +139,20 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Fresh vegetables and meat supplies" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -182,7 +173,7 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
               name="receiptNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Receipt/Invoice Number</FormLabel>
+                  <FormLabel>Receipt Number</FormLabel>
                   <FormControl>
                     <Input placeholder="INV-12345" {...field} />
                   </FormControl>
@@ -191,20 +182,6 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
               )}
             />
           </div>
-
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description *</FormLabel>
-                <FormControl>
-                  <Input placeholder="Fresh vegetables and meat supplies" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
           <FormField
             control={form.control}
@@ -239,15 +216,9 @@ export function ExpenseRecordForm({ record, onSuccess }: ExpenseRecordFormProps)
             )}
           />
 
-          <div className="flex gap-2 pt-4">
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 touch-manipulation active:scale-95 transition-transform"
-            >
-              {isLoading ? "Saving..." : record ? "Update Expense" : "Create Expense"}
-            </Button>
-          </div>
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? "Saving..." : record ? "Update Expense" : "Create Expense"}
+          </Button>
         </form>
       </Form>
     </div>
