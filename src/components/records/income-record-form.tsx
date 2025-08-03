@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "sonner"
-import { Plus, Trash2, ChevronDown } from "lucide-react"
+import { Plus, Trash2, ChevronDown, Edit3, Check, X } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
@@ -44,6 +44,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   const [dueAccounts, setDueAccounts] = useState<any[]>([])
   const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
+  const [editingItems, setEditingItems] = useState<Set<number>>(new Set()) // Track which items are being edited
 
   const { isOnline } = useOffline()
 
@@ -82,6 +83,31 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   const watchedItems = form.watch("items")
 
+  // Helper functions for editing state
+  const toggleEditItem = useCallback((index: number) => {
+    setEditingItems((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }, [])
+
+  const stopEditingItem = useCallback((index: number) => {
+    setEditingItems((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(index)
+      return newSet
+    })
+  }, [])
+
+  const stopEditingAllItems = useCallback(() => {
+    setEditingItems(new Set())
+  }, [])
+
   // Replace the existing calculateTotals function with this one
   const calculateTotals = useCallback(() => {
     const items = form.getValues("items")
@@ -119,7 +145,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   // Replace the existing useEffect with this improved version
   useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
+    const subscription = form.watch((value, { name }) => {
       // Trigger on any items array changes or specific field changes
       if (
         name &&
@@ -184,9 +210,15 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     }
   }, [record, dueAccounts])
 
-  // Quick add menu item
+  // Quick add menu item with better keyboard control
   const addMenuItem = useCallback(
     (menuItem: { name: string; price: number }) => {
+      // Prevent any input focus and keyboard popup
+      const activeElement = document.activeElement as HTMLElement
+      if (activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")) {
+        activeElement.blur()
+      }
+
       const currentItems = form.getValues("items")
       const existingIndex = currentItems.findIndex((item) => item.name.toLowerCase() === menuItem.name.toLowerCase())
 
@@ -197,20 +229,26 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
           quantity: (existingItem.quantity || 0) + 1,
         })
       } else {
-        // Replace empty item or append new one
-        const hasEmptyItem = currentItems.length === 1 && currentItems[0].name === "" && currentItems[0].price === 0
+        // Find first empty item or append new one
+        const emptyIndex = currentItems.findIndex((item) => !item.name || item.name.trim() === "")
 
-        if (hasEmptyItem) {
-          update(0, { name: menuItem.name, quantity: 1, price: menuItem.price })
+        if (emptyIndex !== -1) {
+          // Replace the first empty item
+          update(emptyIndex, { name: menuItem.name, quantity: 1, price: menuItem.price })
         } else {
+          // No empty items, append new one
           append({ name: menuItem.name, quantity: 1, price: menuItem.price })
         }
       }
 
-      // Force calculation after adding item
+      // Force calculation and prevent focus
       setTimeout(() => {
         calculateTotals()
-      }, 50)
+        // Ensure no input gets focus after state update
+        if (document.activeElement && document.activeElement.tagName === "INPUT") {
+          ;(document.activeElement as HTMLElement).blur()
+        }
+      }, 100)
     },
     [form, update, append, calculateTotals],
   )
@@ -235,9 +273,13 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
       if (result?.success) {
         if (!record) {
-          form.reset(defaultValues)
+          form.reset({
+            ...defaultValues,
+            items: [{ name: "", quantity: 1, price: 0 }], // Always keep one empty item
+          })
           setSelectedDueAccount("")
           setFormState({ showExtras: false, showNotes: false, isSplitPayment: false })
+          setEditingItems(new Set()) // Clear editing state
         }
         onSuccess?.()
       }
@@ -262,7 +304,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you're back online.
+            Changes will be saved locally and synced when you&apos;re back online.
           </p>
         </div>
       )}
@@ -351,8 +393,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               <div className="max-h-48 overflow-y-auto space-y-4">
                 {/* Popular Items at the top */}
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-neutral-950 text-white">
-                    Popular Items
+                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-blue-50 text-blue-900">
+                    ⭐ Popular Items
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                     {POPULAR_ITEMS.map((item) => {
@@ -367,10 +409,19 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => addMenuItem(item)}
-                          className="justify-start text-left h-auto p-2 relative bg-blue-50 hover:bg-blue-100 border-blue-200"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            addMenuItem(item)
+                          }}
+                          onTouchStart={(e) => {
+                            // Prevent any touch-related focus
+                            e.preventDefault()
+                          }}
+                          className="justify-start text-left h-auto p-2 relative bg-blue-50 hover:bg-blue-100 border-blue-200 touch-manipulation"
+                          tabIndex={-1}
                         >
-                          <div className="w-full">
+                          <div className="w-full pointer-events-none">
                             <div className="font-medium text-xs truncate">{item.name}</div>
                             <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
                             {currentQuantity > 0 && (
@@ -400,7 +451,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
                   return (
                     <div key={category} className="space-y-2">
-                      <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
+                      <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-white">
                         {category}
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -416,10 +467,19 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => addMenuItem(item)}
-                              className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                addMenuItem(item)
+                              }}
+                              onTouchStart={(e) => {
+                                // Prevent any touch-related focus
+                                e.preventDefault()
+                              }}
+                              className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200 touch-manipulation"
+                              tabIndex={-1}
                             >
-                              <div className="w-full">
+                              <div className="w-full pointer-events-none">
                                 <div className="font-medium text-xs truncate">{item.name}</div>
                                 <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
                                 {currentQuantity > 0 && (
@@ -451,96 +511,186 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Order Items</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ name: "", quantity: 1, price: 0 })}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
-              </Button>
+              <div className="flex gap-2">
+                {editingItems.size > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={stopEditingAllItems}
+                    className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-transparent"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Stop Editing All
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Blur any focused input before adding new item
+                    if (document.activeElement && document.activeElement instanceof HTMLElement) {
+                      document.activeElement.blur()
+                    }
+                    append({ name: "", quantity: 1, price: 0 })
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-3 max-h-60 overflow-y-auto">
-              {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg">
-                  <div className="col-span-5">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.name`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Item</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Item name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.quantity`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Qty</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.price`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Price</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-xs">Total</Label>
-                    <div className="text-sm font-medium py-2 px-2 bg-muted rounded mt-1">
-                      {formatCurrency((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.price || 0))}
+              {fields.map((field, index) => {
+                const isEmptyItem = !watchedItems[index]?.name || watchedItems[index]?.name === ""
+                const isFromMenu = watchedItems[index]?.name && watchedItems[index]?.price > 0 && !isEmptyItem
+                const isEditing = editingItems.has(index)
+                const canEdit = isFromMenu && !isEditing
+                const shouldShowReadonly = isFromMenu && !isEditing || false
+
+                return (
+                  <div
+                    key={field.id}
+                    className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg"
+                    data-menu-added={isFromMenu ? "true" : "false"}
+                  >
+                    <div className="col-span-4">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Item</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Item name"
+                                {...field}
+                                onFocus={(e) => {
+                                  // Allow focus only for manual items or when editing
+                                  if (shouldShowReadonly) {
+                                    e.target.blur()
+                                  }
+                                }}
+                                className={shouldShowReadonly ? "bg-gray-50 cursor-default select-none" : ""}
+                                readOnly={shouldShowReadonly}
+                                tabIndex={shouldShowReadonly ? -1 : 0}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.quantity`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Qty</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                {...field}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                inputMode="numeric"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.price`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Price</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                {...field}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                onFocus={(e) => {
+                                  if (shouldShowReadonly) {
+                                    e.target.blur()
+                                  }
+                                }}
+                                readOnly={shouldShowReadonly}
+                                tabIndex={shouldShowReadonly ? -1 : 0}
+                                className={shouldShowReadonly ? "bg-gray-50 cursor-default select-none" : ""}
+                                inputMode={shouldShowReadonly ? "none" : "decimal"}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-xs">Total</Label>
+                      <div className="text-sm font-medium py-2 px-2 bg-muted rounded mt-1">
+                        {formatCurrency((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.price || 0))}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="flex gap-1 mt-6">
+                        {canEdit && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleEditItem(index)}
+                            className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                            title="Edit this item"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {isEditing && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => stopEditingItem(index)}
+                            className="flex-1 text-green-600 border-green-200 hover:bg-green-50"
+                            title="Stop editing"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            remove(index)
+                            // Remove from editing set if it was being edited
+                            setEditingItems((prev) => {
+                              const newSet = new Set(prev)
+                              newSet.delete(index)
+                              return newSet
+                            })
+                          }}
+                          disabled={fields.length === 1 && isEmptyItem}
+                          className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                          title="Remove item"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="col-span-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => remove(index)}
-                      disabled={fields.length === 1}
-                      className="w-full mt-6"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
