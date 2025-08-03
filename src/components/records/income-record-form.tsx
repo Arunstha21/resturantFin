@@ -119,7 +119,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   // Replace the existing useEffect with this improved version
   useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
+    const subscription = form.watch((value, { name }) => {
       // Trigger on any items array changes or specific field changes
       if (
         name &&
@@ -262,7 +262,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you're back online.
+            Changes will be saved locally and synced when you&apos;re back online.
           </p>
         </div>
       )}

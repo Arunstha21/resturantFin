@@ -12,7 +12,7 @@ export function OfflineIndicator({ isOnline }: OfflineIndicatorProps) {
       <div className="flex items-center gap-2 text-orange-700">
         <span className="text-sm font-medium">Working Offline</span>
       </div>
-      <p className="text-xs text-orange-600 mt-1">Changes will be saved locally and synced when you're back online.</p>
+      <p className="text-xs text-orange-600 mt-1">Changes will be saved locally and synced when you&apos;re back online.</p>
     </div>
   )
 }
