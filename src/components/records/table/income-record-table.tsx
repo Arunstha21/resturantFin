@@ -141,7 +141,7 @@ export function IncomeRecordsTable({
     },
   })
 
-  const renderMobileCard = (record: any, index: number) => {
+  const renderMobileCard = (record: any) => {
     const isChild = record._id.startsWith("child_")
     const isGroup = record.isGroup
 
@@ -299,7 +299,7 @@ export function IncomeRecordsTable({
           <>
             <div className="space-y-2">
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row, index) => renderMobileCard(row.original, index))
+                table.getRowModel().rows.map((row) => renderMobileCard(row.original))
               ) : (
                 <Card>
                   <CardContent className="p-6 text-center">

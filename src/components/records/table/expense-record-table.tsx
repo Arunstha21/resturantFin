@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { ExpenseRecordDialog } from "@/components/records/expense-record-dialog"
 import { OfflineAPI } from "@/lib/offline/offline-api"
-import { Search, RefreshCw, Banknote, Smartphone, WifiOff, Trash2, Edit, Tag } from "lucide-react"
+import { Search, RefreshCw, WifiOff, Trash2, Edit, Tag } from "lucide-react"
 import { toast } from "sonner"
 import type { ExpenseRecord } from "@/types"
 import { useExpenseColumns } from "../hooks/use-expense-columns"
@@ -94,7 +94,7 @@ export function ExpenseRecordsTable({
     },
   })
 
-  const renderMobileCard = (record: ExpenseRecord, index: number) => {
+  const renderMobileCard = (record: ExpenseRecord) => {
     return (
       <Card key={record._id} className="mb-2">
         <CardContent>
@@ -209,7 +209,7 @@ export function ExpenseRecordsTable({
           <>
             <div className="space-y-2">
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row, index) => renderMobileCard(row.original, index))
+                table.getRowModel().rows.map((row) => renderMobileCard(row.original))
               ) : (
                 <Card>
                   <CardContent className="p-6 text-center">
