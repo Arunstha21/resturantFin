@@ -49,7 +49,7 @@ export async function updateUser(id: string, data: UserInput) {
 
   await dbConnect()
 
-  const updateData: {name: string; email: string; role: "admin" | "manager"; password?: string} = {
+  const updateData: {name: string; email: string; role: "admin" | "manager" | "staff"; password?: string} = {
     name: validatedData.name,
     email: validatedData.email,
     role: validatedData.role,
