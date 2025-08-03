@@ -20,7 +20,7 @@ import { OfflineAPI } from "@/lib/offline/offline-api"
 import { formatCurrency } from "@/lib/utils"
 import { useOffline } from "../../hooks/use-offline"
 import type { IncomeRecord } from "@/types"
-import { MENU_ITEMS, type POPULAR_ITEMS } from "./menu-items"
+import { MENU_ITEMS, POPULAR_ITEMS } from "./menu-items"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -119,7 +119,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   // Replace the existing useEffect with this improved version
   useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
+    const subscription = form.watch((value, { name, type }) => {
       // Trigger on any items array changes or specific field changes
       if (
         name &&
@@ -186,7 +186,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   // Quick add menu item
   const addMenuItem = useCallback(
-    (menuItem: (typeof POPULAR_ITEMS)[0]) => {
+    (menuItem: { name: string; price: number }) => {
       const currentItems = form.getValues("items")
       const existingIndex = currentItems.findIndex((item) => item.name.toLowerCase() === menuItem.name.toLowerCase())
 
@@ -262,7 +262,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <span className="text-sm font-medium">Working Offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            Changes will be saved locally and synced when you&apos;re back online.
+            Changes will be saved locally and synced when you're back online.
           </p>
         </div>
       )}
@@ -342,53 +342,106 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             )}
           />
 
-          {/* Quick Add Menu Items */}
-          {/* Menu Items - Separate Scrollable Container */}
+          <Separator />
+
+          {/* All Menu Items - Scrollable Container */}
           <div className="space-y-2">
-            <Label>Menu Items</Label>
+            <Label>All Menu Items</Label>
             <div className="border rounded-lg p-3">
               <div className="max-h-48 overflow-y-auto space-y-4">
-                {Object.entries(MENU_ITEMS).map(([category, items]) => (
-                  <div key={category} className="space-y-2">
-                    <h4 className="font-semibold text-sm border-b border-gray-200 pb-1">{category}</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                      {items.map((item) => {
-                        const existingItem = watchedItems?.find(
-                          (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
-                        )
-                        const currentQuantity = existingItem?.quantity || 0
+                {/* Popular Items at the top */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-neutral-950 text-white">
+                    Popular Items
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {POPULAR_ITEMS.map((item) => {
+                      const existingItem = watchedItems?.find(
+                        (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
+                      )
+                      const currentQuantity = existingItem?.quantity || 0
 
-                        return (
-                          <Button
-                            key={item.name}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addMenuItem(item)}
-                            className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200"
-                          >
-                            <div className="w-full">
-                              <div className="font-medium text-xs truncate">{item.name}</div>
-                              <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
-                              {currentQuantity > 0 && (
-                                <Badge
-                                  variant="default"
-                                  className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
-                                >
-                                  {currentQuantity}
-                                </Badge>
-                              )}
-                            </div>
-                          </Button>
-                        )
-                      })}
-                    </div>
+                      return (
+                        <Button
+                          key={item.name}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addMenuItem(item)}
+                          className="justify-start text-left h-auto p-2 relative bg-blue-50 hover:bg-blue-100 border-blue-200"
+                        >
+                          <div className="w-full">
+                            <div className="font-medium text-xs truncate">{item.name}</div>
+                            <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
+                            {currentQuantity > 0 && (
+                              <Badge
+                                variant="default"
+                                className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
+                              >
+                                {currentQuantity}
+                              </Badge>
+                            )}
+                          </div>
+                        </Button>
+                      )
+                    })}
                   </div>
-                ))}
+                </div>
+
+                {/* Regular categories with popular items filtered out */}
+                {Object.entries(MENU_ITEMS).map(([category, items]) => {
+                  // Filter out popular items from each category
+                  const filteredItems = items.filter(
+                    (item) => !POPULAR_ITEMS.some((popular) => popular.name === item.name),
+                  )
+
+                  // Only show category if it has items after filtering
+                  if (filteredItems.length === 0) return null
+
+                  return (
+                    <div key={category} className="space-y-2">
+                      <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
+                        {category}
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {filteredItems.map((item) => {
+                          const existingItem = watchedItems?.find(
+                            (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
+                          )
+                          const currentQuantity = existingItem?.quantity || 0
+
+                          return (
+                            <Button
+                              key={item.name}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addMenuItem(item)}
+                              className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200"
+                            >
+                              <div className="w-full">
+                                <div className="font-medium text-xs truncate">{item.name}</div>
+                                <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
+                                {currentQuantity > 0 && (
+                                  <Badge
+                                    variant="default"
+                                    className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
+                                  >
+                                    {currentQuantity}
+                                  </Badge>
+                                )}
+                              </div>
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Click items to add to order. Numbers show current quantity in cart.
+              Popular items are shown first, followed by all other menu items by category.
             </p>
           </div>
 

@@ -43,7 +43,7 @@ const ALL_MENU_ITEMS = [
 ];
 
 export const POPULAR_ITEMS = ALL_MENU_ITEMS.filter((item) =>
-  ["Milk Tea", "Black Tea", "Sikher Ice", "Sandwich", "French Fries", "Lassi Half"].some((popular) =>
+  ["Milk Tea", "Black Tea", "Lemon Tea", "Sikher Ice", "Churot", "Lassi Half"].some((popular) =>
     item.name.includes(popular),
   ),
 ).slice(0, 6);
