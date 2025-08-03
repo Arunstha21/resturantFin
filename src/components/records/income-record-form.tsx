@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,9 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     isSplitPayment: record?.paymentMethod === "split",
   })
 
+  const [dueAccounts, setDueAccounts] = useState<any[]>([])
+  const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
+
   const { isOnline } = useOffline()
 
   // Memoized default values
@@ -77,7 +80,9 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     name: "items",
   })
 
-  // Optimized calculation function
+  const watchedItems = form.watch("items")
+
+  // Replace the existing calculateTotals function with this one
   const calculateTotals = useCallback(() => {
     const items = form.getValues("items")
     const subtotal = items.reduce((sum, item) => sum + (Number(item?.quantity) || 0) * (Number(item?.price) || 0), 0)
@@ -86,30 +91,98 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     const tip = Number(form.getValues("tip")) || 0
     const total = subtotal - discount + tip
 
-    form.setValue("subtotal", Number(subtotal.toFixed(2)))
-    form.setValue("totalAmount", Number(total.toFixed(2)))
+    // Use silent updates to prevent triggering watchers
+    const currentSubtotal = form.getValues("subtotal")
+    const currentTotal = form.getValues("totalAmount")
+
+    if (Math.abs(currentSubtotal - subtotal) > 0.01) {
+      form.setValue("subtotal", Number(subtotal.toFixed(2)), { shouldValidate: false, shouldDirty: false })
+    }
+
+    if (Math.abs(currentTotal - total) > 0.01) {
+      form.setValue("totalAmount", Number(total.toFixed(2)), { shouldValidate: false, shouldDirty: false })
+    }
 
     // Handle split payment
     if (formState.isSplitPayment) {
-      form.setValue("paymentMethod", "split")
+      if (form.getValues("paymentMethod") !== "split") {
+        form.setValue("paymentMethod", "split", { shouldValidate: false, shouldDirty: false })
+      }
       const cashAmount = Number(form.getValues("cashAmount")) || 0
       const digitalAmount = Number(form.getValues("digitalAmount")) || 0
-      form.setValue("paymentStatus", cashAmount + digitalAmount >= total ? "completed" : "pending")
+      const newStatus = cashAmount + digitalAmount >= total ? "completed" : "pending"
+      if (form.getValues("paymentStatus") !== newStatus) {
+        form.setValue("paymentStatus", newStatus, { shouldValidate: false, shouldDirty: false })
+      }
     }
   }, [form, formState.isSplitPayment])
 
-  // Debounced form watcher
-  const watchedItems = form.watch("items")
-  const watchedDiscount = form.watch("discount")
-  const watchedTip = form.watch("tip")
-  const watchedCashAmount = form.watch("cashAmount")
-  const watchedDigitalAmount = form.watch("digitalAmount")
+  // Replace the existing useEffect with this improved version
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      // Trigger on any items array changes or specific field changes
+      if (
+        name &&
+        !name.includes("subtotal") &&
+        !name.includes("totalAmount") &&
+        (name.startsWith("items") ||
+          name === "discount" ||
+          name === "tip" ||
+          name === "cashAmount" ||
+          name === "digitalAmount")
+      ) {
+        // Use setTimeout to prevent immediate recursion
+        const timeoutId = setTimeout(() => {
+          calculateTotals()
+        }, 10)
+        return () => clearTimeout(timeoutId)
+      }
+    })
 
-  // Calculate totals when relevant fields change
-  useMemo(() => {
-    const timeoutId = setTimeout(calculateTotals, 100)
-    return () => clearTimeout(timeoutId)
-  }, [watchedItems, watchedDiscount, watchedTip, watchedCashAmount, watchedDigitalAmount, calculateTotals])
+    return () => subscription.unsubscribe()
+  }, [form, calculateTotals])
+
+  // Add a separate effect to watch for items array changes
+  useEffect(() => {
+    calculateTotals()
+  }, [watchedItems.length, calculateTotals])
+
+  // Fetch due accounts with error handling
+  useEffect(() => {
+    let isMounted = true
+    const fetchDueAccounts = async () => {
+      try {
+        const accounts = await OfflineAPI.getDueAccounts()
+        if (isMounted) {
+          setDueAccounts(accounts || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch due accounts:", error)
+      }
+    }
+    fetchDueAccounts()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  // Initialize form state from record
+  useEffect(() => {
+    if (record) {
+      if (record.discount && record.discount > 0) {
+        setFormState((prev) => ({ ...prev, showExtras: true }))
+      }
+      if (record.notes && record.notes.trim() !== "") {
+        setFormState((prev) => ({ ...prev, showNotes: true }))
+      }
+      if (record.paymentMethod === "split") {
+        setFormState((prev) => ({ ...prev, isSplitPayment: true }))
+      }
+      if (record.isDueAccount && record.dueAccountId && dueAccounts.length > 0) {
+        setSelectedDueAccount(record.dueAccountId)
+      }
+    }
+  }, [record, dueAccounts])
 
   // Quick add menu item
   const addMenuItem = useCallback(
@@ -133,8 +206,13 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
           append({ name: menuItem.name, quantity: 1, price: menuItem.price })
         }
       }
+
+      // Force calculation after adding item
+      setTimeout(() => {
+        calculateTotals()
+      }, 50)
     },
-    [form, update, append],
+    [form, update, append, calculateTotals],
   )
 
   const onSubmit = async (data: IncomeRecordInput) => {
@@ -158,6 +236,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       if (result?.success) {
         if (!record) {
           form.reset(defaultValues)
+          setSelectedDueAccount("")
           setFormState({ showExtras: false, showNotes: false, isSplitPayment: false })
         }
         onSuccess?.()
@@ -219,6 +298,49 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               )}
             />
           </div>
+
+          {/* Due Account Selection */}
+          <FormField
+            control={form.control}
+            name="dueAccountId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Due Account (Optional)</FormLabel>
+                <Select
+                  value={selectedDueAccount}
+                  onValueChange={(value) => {
+                    const newValue = value === "none" ? "" : value
+                    setSelectedDueAccount(newValue)
+                    field.onChange(newValue)
+                    if (newValue && newValue !== "") {
+                      form.setValue("isDueAccount", true)
+                      const account = dueAccounts.find((acc) => acc._id === newValue)
+                      if (account) {
+                        form.setValue("customerName", account.customerName)
+                      }
+                    } else {
+                      form.setValue("isDueAccount", false)
+                    }
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer account" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No due account</SelectItem>
+                    {dueAccounts.map((account) => (
+                      <SelectItem key={account._id} value={account._id}>
+                        {account.customerName} ({formatCurrency(account.totalDueAmount || 0)} due)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {/* Quick Add Menu Items */}
           {/* Menu Items - Separate Scrollable Container */}
