@@ -29,7 +29,7 @@ export async function createIncomeRecord(data: IncomeRecordInput) {
   })
 
   revalidatePath("/dashboard")
-  revalidatePath("/records")
+  revalidatePath("/dashboard/records")
 
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
@@ -57,7 +57,7 @@ export async function updateIncomeRecord(id: string, data: IncomeRecordInput) {
   }
 
   revalidatePath("/dashboard")
-  revalidatePath("/records")
+  revalidatePath("/dashboard/records")
 
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
@@ -77,7 +77,7 @@ export async function deleteIncomeRecord(id: string) {
   }
 
   revalidatePath("/dashboard")
-  revalidatePath("/records")
+  revalidatePath("/dashboard/records")
 
   return { success: true }
 }

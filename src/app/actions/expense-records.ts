@@ -23,7 +23,7 @@ export async function createExpenseRecord(data: ExpenseRecordInput) {
   })
 
   revalidatePath("/dashboard")
-  revalidatePath("/records")
+  revalidatePath("/dashboard/records")
 
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
@@ -45,7 +45,7 @@ export async function updateExpenseRecord(id: string, data: ExpenseRecordInput) 
   }
 
   revalidatePath("/dashboard")
-  revalidatePath("/records")
+  revalidatePath("/dashboard/records")
 
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
@@ -65,7 +65,7 @@ export async function deleteExpenseRecord(id: string) {
   }
 
   revalidatePath("/dashboard")
-  revalidatePath("/records")
+  revalidatePath("/dashboard/records")
 
   return { success: true }
 }

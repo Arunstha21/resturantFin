@@ -12,7 +12,7 @@ export async function createIncomeRecordOffline(data: IncomeRecordInput) {
 
     if (result.success) {
       revalidatePath("/dashboard")
-      revalidatePath("/records")
+      revalidatePath("/dashboard/records")
     }
 
     return result
@@ -28,7 +28,7 @@ export async function updateIncomeRecordOffline(id: string, data: IncomeRecordIn
 
     if (result.success) {
       revalidatePath("/dashboard")
-      revalidatePath("/records")
+      revalidatePath("/dashboard/records")
     }
 
     return result
@@ -44,7 +44,7 @@ export async function deleteIncomeRecordOffline(id: string) {
 
     if (result.success) {
       revalidatePath("/dashboard")
-      revalidatePath("/records")
+      revalidatePath("/dashboard/records")
     }
 
     return result
