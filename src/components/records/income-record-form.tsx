@@ -393,8 +393,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               <div className="max-h-48 overflow-y-auto space-y-4">
                 {/* Popular Items at the top */}
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-blue-50 text-blue-900">
-                    ⭐ Popular Items
+                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-neutral-950 text-blue-900">
+                    Popular Items
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                     {POPULAR_ITEMS.map((item) => {
@@ -451,7 +451,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
                   return (
                     <div key={category} className="space-y-2">
-                      <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-white">
+                      <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
                         {category}
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
