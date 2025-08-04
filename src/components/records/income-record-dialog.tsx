@@ -41,7 +41,14 @@ export function IncomeRecordDialog({ record, onSuccess, trigger, mode = "create"
       <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
       <DialogContent className="overflow-y-auto max-w-2xl max-h-[95vh]" aria-describedby="dialog-description">
         <DialogHeader>
-          <DialogTitle>{record ? "Edit Order" : "Create New Order"}</DialogTitle>
+          <DialogTitle>
+            <div className="flex items-center gap-2">
+              <span>{record ? "Edit Order" : "Create New Order"}</span>
+              <span className="text-sm text-muted-foreground">
+                {record ? `Time : ${new Date(record.date).toLocaleString()}` : `Time : ${new Date().toLocaleString()}`}
+              </span>
+            </div>
+          </DialogTitle>
         </DialogHeader>
         <div className="mt-4">
           <IncomeRecordForm record={record} onSuccess={handleSuccess} />
