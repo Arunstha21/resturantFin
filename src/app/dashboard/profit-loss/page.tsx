@@ -233,10 +233,12 @@ export default function ProfitLossPage() {
     const totalExpenses = expenseBreakdown.reduce((sum, item) => sum + item.amount, 0)
 
     // Calculate profit metrics
-    const grossProfit = totalRevenue - (expenseBreakdown.find((e) => e.category === "Food & Ingredients")?.amount || 0)
+    const grossProfit = totalRevenue - expenseBreakdown
+      .filter((e) => e.category !== "Staff Salaries" && e.category !== "Rent & Utilities")
+      .reduce((sum, e) => sum + e.amount, 0)
     const netProfit = totalRevenue - totalExpenses
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
-
+    
     // Calculate pending collections breakdown
     const pendingBreakdown = [
       {
