@@ -208,7 +208,23 @@ export function IncomeRecordsTable({
             {/* Amount and Actions */}
             <div className="flex items-center gap-2 shrink-0">
               <div className={`font-bold text-sm ${isGroup ? "text-red-600" : "text-green-600"}`}>
-                {formatCurrency(record.totalAmount)}
+                {
+                  (() => {
+                    let currentAmount
+                    const amount = record.totalAmount as number
+                    if (record.paymentMethod === "split") {
+                      const cashAmount = record.cashAmount || 0
+                      const digitalAmount = record.digitalAmount || 0
+                      if (cashAmount > 0 || digitalAmount > 0) {
+                        currentAmount = amount - (cashAmount + digitalAmount)
+                      }
+                      currentAmount = currentAmount || amount
+                    } else {
+                      currentAmount = amount
+                    }
+                    return formatCurrency(currentAmount)
+                  })()
+                }
               </div>
 
               {!isGroup && (
