@@ -16,7 +16,7 @@ export class OfflineAPI {
       localRecords = await syncManager.getLocalRecords("income")
 
       // If online, fetch from server in background
-      if (syncManager.getOnlineStatus() && localRecords.length === 0) {
+      if (syncManager.getOnlineStatus() || localRecords.length === 0) {
         this.backgroundFetchIncomeRecords()
         localRecords = await syncManager.getLocalRecords("income")
       }
@@ -154,7 +154,7 @@ export class OfflineAPI {
       localRecords = await syncManager.getLocalRecords("expense")
 
       // If online, fetch from server in background
-      if (syncManager.getOnlineStatus() && localRecords.length === 0) {
+      if (syncManager.getOnlineStatus() || localRecords.length === 0) {
         this.backgroundFetchExpenseRecords()
         localRecords = await syncManager.getLocalRecords("expense")
       }
