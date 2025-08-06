@@ -10,13 +10,15 @@ import { createMenuItem, deleteMenuItem, updateMenuItem } from "@/app/actions/me
 export class OfflineAPI {
   // Income Records
   static async getIncomeRecords(): Promise<IncomeRecord[]> {
+    let localRecords: IncomeRecord[] = []
     try {
       // Always return local data first for immediate UI response
-      const localRecords = await syncManager.getLocalRecords("income")
+      localRecords = await syncManager.getLocalRecords("income")
 
       // If online, fetch from server in background
-      if (syncManager.getOnlineStatus()) {
+      if (syncManager.getOnlineStatus() && localRecords.length === 0) {
         this.backgroundFetchIncomeRecords()
+        localRecords = await syncManager.getLocalRecords("income")
       }
 
       return localRecords
@@ -146,13 +148,15 @@ export class OfflineAPI {
 
   // Expense Records - similar optimizations
   static async getExpenseRecords(): Promise<ExpenseRecord[]> {
+    let localRecords: ExpenseRecord[] = []
     try {
       // Always return local data first
-      const localRecords = await syncManager.getLocalRecords("expense")
+      localRecords = await syncManager.getLocalRecords("expense")
 
       // If online, fetch from server in background
-      if (syncManager.getOnlineStatus()) {
+      if (syncManager.getOnlineStatus() && localRecords.length === 0) {
         this.backgroundFetchExpenseRecords()
+        localRecords = await syncManager.getLocalRecords("expense")
       }
 
       return localRecords
