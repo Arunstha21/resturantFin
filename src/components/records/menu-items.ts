@@ -3,26 +3,31 @@ export const MENU_ITEMS = {
     { name: "Milk Tea", price: 30 },
     { name: "Black Tea", price: 25 },
     { name: "Lemon Tea", price: 25 },
+    { name: "Hot Lemon", price: 40 },
+    { name: "Hot Lemon (Honey/Ginger)", price: 60 },
+    { name: "Hot lemon (Honey & Ginger)", price: 80 },
     { name: "Milk Coffee", price: 100 },
     { name: "Black Coffee", price: 60 },
-    { name: "Ice Coffee", price: 60 },
-    { name: "Hot Lemon", price: 40 },
-    { name: "Hot lemon (Honey & Ginger)", price: 80 },
+    { name: "Cold Coffee", price: 120 },
+    { name: "Iced Americano", price: 80 },
     { name: "Sprite Lemonade", price: 120 },
-    { name: "Peach Iced Tea", price: 120 },
+    { name: "Peach Iced Tea", price: 130 },
     { name: "Coke/Fanta/Sprite", price: 80 },
     { name: "Lassi Half", price: 50 },
     { name: "Lassi Full", price: 100 },
   ],
   Food: [
     { name: "Sandwich", price: 60 },
+    { name: "Sandwich with Egg", price: 120 },
+    { name: "Sandwich with Cheese & Egg", price: 150 },
     { name: "Sandwich with Fries", price: 100 },
-    { name: "French Fries", price: 110 },
-    { name: "Current", price: 90 },
-    { name: "Current with omlet", price: 120 },
-    { name: "Alu Chop", price: 80 },
     { name: "Wai Wai Sadheako", price: 60 },
     { name: "Wai Wai Soup/Fry", price: 70 },
+    { name: "Wai Wai with Omlet", price: 70 },
+    { name: "French Fries", price: 110 },
+    { name: "Current Fried", price: 90 },
+    { name: "Current with omlet", price: 120 },
+    { name: "Alu Chop", price: 80 },
     { name: "Aloo Cheese ball", price: 160 },
     { name: "Chicken Cheese ball", price: 280 },
     { name: "Chicken Kurkure", price: 240 },
@@ -38,6 +43,7 @@ export const MENU_ITEMS = {
   Hookah: [
     { name: "Normal Hukka", price: 250 },
     { name: "Cloud Hukka", price: 480 },
+    { name: "Special Hukka", price: 480 },
   ],
 }
 
@@ -49,7 +55,7 @@ const ALL_MENU_ITEMS = [
 ];
 
 export const POPULAR_ITEMS = ALL_MENU_ITEMS.filter((item) =>
-  ["Milk Tea", "Black Tea", "Lemon Tea", "Sikher Ice", "Churot", "Lassi Half"].some((popular) =>
+  ["Milk Tea", "Sikher Ice", "Churot", "Coke/Fanta/Sprite", "Lemon Tea", "Sandwich", "Alu Chop", "Wai Wai Sadheako"].some((popular) =>
     item.name.includes(popular),
   ),
 ).slice(0, 6);
