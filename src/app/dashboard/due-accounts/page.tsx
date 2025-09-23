@@ -37,6 +37,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
+import { DuePaymentDialog } from "@/components/due-accounts/due-payment-dialog"
 
 export default function DueAccountsPage() {
   const [dueAccounts, setDueAccounts] = useState<DueAccount[]>([])
@@ -316,6 +317,12 @@ export default function DueAccountsPage() {
                             </div>
                           </div>
                         </div>
+                        {account.totalDueAmount > 0 && (
+                          <DuePaymentDialog
+                            account={dueAccounts.find((a) => a._id === account._id)!}
+                            onSuccess={handleRefresh}
+                          />
+                        )}
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <div

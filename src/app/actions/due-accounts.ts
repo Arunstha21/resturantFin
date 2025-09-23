@@ -125,3 +125,60 @@ export async function getDueAccount(id: string) {
     })),
   }
 }
+
+export async function duePaymentTransaction(id: string, paymentAmount: number, paymentMethod: "cash" | "digital") {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized")
+  }
+  if (paymentAmount <= 0) throw new Error("Payment amount must be greater than 0")
+  await dbConnect()
+  
+  const pendingOrdersDocs = await IncomeRecord.find({
+    dueAccountId: id,
+    paymentStatus: "pending",
+  }).sort({ date: 1 })
+
+  let remainingPayment = paymentAmount
+
+  for (const order of pendingOrdersDocs) {
+    if (remainingPayment <= 0) break
+
+    const paidAmount = (order.cashAmount || 0) + (order.digitalAmount || 0)
+    const unpaidAmount = order.totalAmount - paidAmount
+    if (unpaidAmount <= 0) continue
+
+    const paymentForThisOrder = Math.min(unpaidAmount, remainingPayment)
+
+    if (paymentForThisOrder < unpaidAmount || ((order.cashAmount || 0) > 0 || (order.digitalAmount || 0) > 0)) {
+      order.paymentMethod = "split"
+    } else if ((order.cashAmount || 0) === 0 && (order.digitalAmount || 0) === 0) {
+      order.paymentMethod = paymentMethod
+    } else {
+      order.paymentMethod = paymentMethod
+    }
+
+    if (paymentMethod === "cash") {
+      order.cashAmount = (order.cashAmount || 0) + paymentForThisOrder
+    } else if (paymentMethod === "digital") {
+      order.digitalAmount = (order.digitalAmount || 0) + paymentForThisOrder
+    } else {
+      throw new Error("Invalid payment method")
+    }
+
+    if (((order.cashAmount || 0) + (order.digitalAmount || 0)) >= order.totalAmount) {
+      order.paymentStatus = "completed"
+    }
+  
+    await order.save()
+    remainingPayment -= paymentForThisOrder
+  }
+
+  revalidatePath("/due-accounts")
+
+  return { 
+    success: true, 
+    paidAmount: paymentAmount - remainingPayment, 
+    remainingPayment 
+  }
+}

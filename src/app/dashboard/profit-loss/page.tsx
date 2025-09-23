@@ -245,14 +245,14 @@ export default function ProfitLossPage() {
         category: "Due Account Orders",
         amount: pendingRecords
           .filter((record) => record.isDueAccount)
-          .reduce((sum, record) => sum + (record.totalAmount || 0), 0),
+          .reduce((sum, record) => sum + (record.cashAmount && record.digitalAmount ? record.totalAmount - (record.cashAmount + record.digitalAmount || 0) : record.totalAmount), 0),
         count: pendingRecords.filter((record) => record.isDueAccount).length,
       },
       {
         category: "Regular Pending Orders",
         amount: pendingRecords
           .filter((record) => !record.isDueAccount)
-          .reduce((sum, record) => sum + (record.totalAmount || 0), 0),
+          .reduce((sum, record) => sum +  (record.cashAmount && record.digitalAmount ? record.totalAmount - (record.cashAmount + record.digitalAmount || 0) : record.totalAmount), 0),
         count: pendingRecords.filter((record) => !record.isDueAccount).length,
       },
     ].filter((item) => item.amount > 0)

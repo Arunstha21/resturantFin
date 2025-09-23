@@ -94,6 +94,12 @@ export interface DueAccount {
   _timestamp?: number
 }
 
+export interface PaymentResult {
+  success: boolean
+  paidAmount: number
+  remainingPayment: number
+}
+
 export interface DueAccountSummary {
   _id: string
   customerName: string

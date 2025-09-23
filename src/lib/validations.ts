@@ -69,6 +69,13 @@ export const dueAccountSchema = z.object({
   customerEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
 })
 
+export const duePaymentSchema = z.object({
+  paymentAmount: z.number().min(0.01, "Payment amount must be greater than 0"),
+  paymentMethod: z.enum(["cash", "digital"], {
+    required_error: "Please select a payment method",
+  }),
+})
+
 export type DueAccountInput = z.infer<typeof dueAccountSchema>
 export type OrderItemInput = z.infer<typeof orderItemSchema>
 export type IncomeRecordInput = z.infer<typeof incomeRecordSchema>
@@ -76,3 +83,4 @@ export type ExpenseRecordInput = z.infer<typeof expenseRecordSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type UserInput = z.infer<typeof userSchema>
 export type FilterInput = z.infer<typeof filterSchema>
+export type DuePaymentInput = z.infer<typeof duePaymentSchema>
