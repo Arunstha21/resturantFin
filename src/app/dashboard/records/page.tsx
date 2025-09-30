@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { IncomeRecordsTable } from "@/components/records/table/income-record-table"
 import { ExpenseRecordsTable } from "@/components/records/table/expense-record-table"
+import Loading from "./loading"
 
 export default function RecordsPage() {
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([])
@@ -43,6 +44,13 @@ export default function RecordsPage() {
   const handleFormSuccess = useCallback(async () => {
     await fetchRecords()
   }, [fetchRecords])
+
+  const [hydrated, setHydrated] = useState(false)
+useEffect(() => setHydrated(true), [])
+
+if (!hydrated) {
+  return <Loading />
+}
 
   return (
     <div className="min-h-screen bg-background">

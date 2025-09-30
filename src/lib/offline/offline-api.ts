@@ -660,4 +660,17 @@ export class OfflineAPI {
   static triggerSync() {
     return syncManager.triggerSync()
   }
+
+  static async forceRefreshCache() {
+    return Promise.all([
+      this.clearLocalData(),
+      this.backgroundFetchIncomeRecords(),
+      this.backgroundFetchExpenseRecords(),
+      this.backgroundFetchDueAccounts(),
+      this.backgroundFetchMenuItems(),
+      this.backgroundFetchDashboardStats("month"),
+      this.backgroundFetchDashboardStats("week"),
+      this.backgroundFetchDashboardStats("today"),
+    ])
+  }
 }

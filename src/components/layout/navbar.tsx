@@ -14,6 +14,7 @@ import {
   DollarSign,
   LogOut,
   Users,
+  RefreshCw,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { OfflineAPI } from "@/lib/offline/offline-api"
 
 const staffNavigation = [
   { name: "Records", shortName: "Rec", href: "/dashboard/records", icon: DollarSign },
@@ -63,6 +65,14 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
   const userRole = session?.user?.role
   const navigation = getNavigation(userRole)
 
+  const handleForceRefresh = async () => {
+    await OfflineAPI.forceRefreshCache();
+
+    setTimeout(() => {
+      window.location.reload()
+    }, 1000)
+  }
+
   return (
     <nav className="bg-background border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -92,6 +102,16 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
           </div>
 
           <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleForceRefresh}
+              className="hidden sm:flex items-center bg-transparent"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Force Refresh
+            </Button>
+
             <ModeToggle />
             {session ? (
               <DropdownMenu>
@@ -134,6 +154,16 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
       {isMobileMenuOpen && (
         <div className="sm:hidden border-t">
           <div className="px-2 pt-2 pb-3 space-y-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleForceRefresh}
+              className="w-full mb-2 flex items-center justify-center bg-transparent"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Force Refresh
+            </Button>
+
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -148,6 +178,7 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
           </div>
         </div>
       )}
+
     </nav>
   )
 }
