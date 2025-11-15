@@ -12,6 +12,8 @@ export const incomeRecordSchema = z.object({
       name: z.string(),
       quantity: z.number(),
       price: z.number(),
+      category: z.string().optional(),
+      menuItemId: z.string().optional(),
     })
   ),
   subtotal: z.number().min(0, "Subtotal must be at least 0"),
@@ -50,10 +52,23 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 })
 
+export const organizationSchema = z.object({
+  name: z.string().min(1, "Organization name is required"),
+  shortName: z.string().optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  taxId: z.string().optional(),
+  isActive: z.boolean(),
+})
+
 export const userSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
+  password: z
+  .union([z.string().min(6, "Password must be at least 6 characters"), z.literal("")])
+  .optional(),
+  organization: z.string().optional(),
   role: z.enum(["admin", "manager", "staff"]),
 })
 
@@ -84,3 +99,4 @@ export type LoginInput = z.infer<typeof loginSchema>
 export type UserInput = z.infer<typeof userSchema>
 export type FilterInput = z.infer<typeof filterSchema>
 export type DuePaymentInput = z.infer<typeof duePaymentSchema>
+export type OrganizationInput = z.infer<typeof organizationSchema>

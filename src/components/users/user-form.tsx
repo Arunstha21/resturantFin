@@ -15,10 +15,12 @@ import type { User } from "@/types"
 
 interface UserFormProps {
   user?: User
+  superAdmin?: boolean
+  organizations?: { _id: string; name: string }[]
   onSuccess?: () => void
 }
 
-export function UserForm({ user, onSuccess }: UserFormProps) {
+export function UserForm({ user, onSuccess, superAdmin, organizations }: UserFormProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   const form = useForm<UserInput>({
@@ -28,12 +30,14 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
           name: user.name,
           email: user.email,
           role: user.role,
+          organization: organizations && organizations[0]?._id ? organizations[0]._id : "",
           password: "",
         }
       : {
           name: "",
           email: "",
           role: "manager",
+          organization: organizations && organizations[0]?._id ? organizations[0]._id : "",
           password: "",
         },
     mode: "onChange",
@@ -135,6 +139,32 @@ export function UserForm({ user, onSuccess }: UserFormProps) {
                 </FormItem>
               )}
             />
+            { superAdmin && organizations && (
+              <FormField
+                control={form.control}
+                name="organization"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Organization *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select organization" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {organizations.map((org) => (
+                          <SelectItem key={org._id} value={org._id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) }
 
             <Button
               type="submit"

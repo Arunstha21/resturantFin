@@ -13,12 +13,12 @@ export class OfflineAPI {
     let localRecords: IncomeRecord[] = []
     try {
       // Always return local data first for immediate UI response
-      localRecords = await syncManager.getLocalRecords("income")
+      localRecords = await syncManager.getLocalRecords("income") as IncomeRecord[]
 
       // If online, fetch from server in background
       if (syncManager.getOnlineStatus() || localRecords.length === 0) {
         this.backgroundFetchIncomeRecords()
-        localRecords = await syncManager.getLocalRecords("income")
+        localRecords = await syncManager.getLocalRecords("income") as IncomeRecord[]
       }
 
       return localRecords
@@ -151,12 +151,12 @@ export class OfflineAPI {
     let localRecords: ExpenseRecord[] = []
     try {
       // Always return local data first
-      localRecords = await syncManager.getLocalRecords("expense")
+      localRecords = await syncManager.getLocalRecords("expense") as ExpenseRecord[]
 
       // If online, fetch from server in background
       if (syncManager.getOnlineStatus() || localRecords.length === 0) {
         this.backgroundFetchExpenseRecords()
-        localRecords = await syncManager.getLocalRecords("expense")
+        localRecords = await syncManager.getLocalRecords("expense") as ExpenseRecord[]
       }
 
       return localRecords
@@ -293,7 +293,7 @@ export class OfflineAPI {
         this.backgroundFetchDueAccounts()
       }
 
-      return localRecords
+      return localRecords as any[]
     } catch (error) {
       console.error("Failed to get due accounts:", error)
       return []
@@ -601,8 +601,8 @@ export class OfflineAPI {
           break
       }
 
-      const filteredIncome = incomeRecords.filter((record) => new Date(record.date) >= startDate)
-      const filteredExpenses = expenseRecords.filter((record) => new Date(record.date) >= startDate)
+      const filteredIncome = (incomeRecords as IncomeRecord[]).filter((record) => new Date(record.date) >= startDate)
+      const filteredExpenses = (expenseRecords as ExpenseRecord[]).filter((record) => new Date(record.date) >= startDate)
 
       const totalIncome = filteredIncome.reduce((sum, record) => sum + (record.totalAmount || 0), 0)
       const totalExpenses = filteredExpenses.reduce((sum, record) => sum + (record.amount || 0), 0)

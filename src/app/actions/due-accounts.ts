@@ -36,6 +36,7 @@ export async function createDueAccount(data: DueAccountInput) {
     lastOrderDate: new Date(),
     createdBy: session.user.id,
     isActive: true,
+    organization: session.user.organization,
   })
 
   revalidatePath("/due-accounts")

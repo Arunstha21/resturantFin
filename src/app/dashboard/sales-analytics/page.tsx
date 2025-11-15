@@ -267,7 +267,7 @@ export default function SalesAnalytics() {
     if (categoryFilter !== "all") {
       filtered = filtered.filter((item) => item.category === categoryFilter)
     }
-
+    
     return filtered
   }
 

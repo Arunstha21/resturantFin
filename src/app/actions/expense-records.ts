@@ -20,6 +20,7 @@ export async function createExpenseRecord(data: ExpenseRecordInput) {
   const record = await ExpenseRecord.create({
     ...validatedData,
     createdBy: session.user.id,
+    organization: session.user.organization,
   })
 
   revalidatePath("/dashboard")

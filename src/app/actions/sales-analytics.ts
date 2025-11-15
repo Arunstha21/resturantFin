@@ -1,14 +1,20 @@
 "use server"
 
+import { authOptions } from "@/lib/auth"
 import dbConnect from "@/lib/db"
 import IncomeRecord from "@/models/IncomeRecord"
+import { getServerSession } from "next-auth"
 
 export async function getSalesAnalytics(dateFilter = "month") {
   try {
+      const session = await getServerSession(authOptions)
+      if (!session?.user?.id) {
+        throw new Error("Unauthorized")
+      }
     await dbConnect()
 
     // Step 1: Get ALL income records from database at once
-    const allIncomeRecords = await IncomeRecord.find({}).lean()
+    const allIncomeRecords = await IncomeRecord.find({ organization: session.user.organization }).lean()
 
     if (allIncomeRecords.length === 0) {
       return {
@@ -330,9 +336,13 @@ export async function getSalesAnalytics(dateFilter = "month") {
 
 export async function getItemSalesHistory(itemName: string, limit = 1000) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized")
+    }
     await dbConnect()
     // Get ALL income records at once
-    const allRecords = await IncomeRecord.find({})
+    const allRecords = await IncomeRecord.find({ organization: session.user.organization })
     const salesHistory: any[] = []
 
     // Process records in JavaScript
@@ -382,10 +392,15 @@ export async function getItemSalesHistory(itemName: string, limit = 1000) {
 
 export async function getItemPriceHistory(itemName: string) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized")
+    }
+
     await dbConnect()
 
     // Get ALL income records at once
-    const allRecords = await IncomeRecord.find({}).lean()
+    const allRecords = await IncomeRecord.find({ organization: session.user.organization }).lean()
 
     const priceHistoryMap = new Map()
 
@@ -452,9 +467,13 @@ export async function getItemPriceHistory(itemName: string) {
 // Simple function to get all income records (for testing)
 export async function getAllIncomeRecords() {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized")
+    }
     await dbConnect()
 
-    const allRecords = await IncomeRecord.find({}).lean()
+    const allRecords = await IncomeRecord.find({ organization: session.user.organization }).lean()
 
     return {
       success: true,

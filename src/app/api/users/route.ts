@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const skip = (page - 1) * limit
 
-    const users = await User.find({}, { password: 0 }) // Exclude password field
+    const users = await User.find({ organization: session.user.organization }, { password: 0 }) // Exclude password field
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

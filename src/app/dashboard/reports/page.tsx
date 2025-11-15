@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCurrency, exportToCSV } from "@/lib/utils"
+import { formatCurrency, exportToCSV, getDateRange } from "@/lib/utils"
 import { Download, Filter, Receipt, CreditCard, Banknote, Smartphone, Calendar, AlertTriangle } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { toast } from "sonner"
@@ -19,7 +19,7 @@ export default function ReportsPage() {
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([])
   const [filteredIncomeRecords, setFilteredIncomeRecords] = useState<IncomeRecord[]>([])
   const [filteredExpenseRecords, setFilteredExpenseRecords] = useState<ExpenseRecord[]>([])
-  const [dateFilter, setDateFilter] = useState("month")
+  const [dateFilter, setDateFilter] = useState("today")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -60,36 +60,16 @@ export default function ReportsPage() {
 
     // Date filter
     if (dateFilter !== "custom") {
-      const now = new Date()
-      const filterDate = new Date()
+      const { start, end } = getDateRange(dateFilter)
 
-      switch (dateFilter) {
-        case "today":
-          filterDate.setHours(0, 0, 0, 0)
-          filteredIncome = filteredIncome.filter((record) => {
-            const recordDate = new Date(record.date)
-            recordDate.setHours(0, 0, 0, 0)
-            return recordDate.getTime() === filterDate.getTime()
-          })
-          filteredExpense = filteredExpense.filter((record) => {
-            const recordDate = new Date(record.date)
-            recordDate.setHours(0, 0, 0, 0)
-            return recordDate.getTime() === filterDate.getTime()
-          })
-          break
-        case "week":
-          filterDate.setDate(now.getDate() - 7)
-          filterDate.setHours(0, 0, 0, 0)
-          filteredIncome = filteredIncome.filter((record) => new Date(record.date) >= filterDate)
-          filteredExpense = filteredExpense.filter((record) => new Date(record.date) >= filterDate)
-          break
-        case "month":
-          filterDate.setDate(now.getDate() - 30)
-          filterDate.setHours(0, 0, 0, 0)
-          filteredIncome = filteredIncome.filter((record) => new Date(record.date) >= filterDate)
-          filteredExpense = filteredExpense.filter((record) => new Date(record.date) >= filterDate)
-          break
-      }
+      filteredIncome = filteredIncome.filter((record) => {
+        const recordDate = new Date(record.date)
+        return recordDate >= start && recordDate <= end
+      })
+      filteredExpense = filteredExpense.filter((record) => {
+        const recordDate = new Date(record.date)
+        return recordDate >= start && recordDate <= end
+      })
     } else if (startDate && endDate) {
       const start = new Date(startDate)
       const end = new Date(endDate)
@@ -245,21 +225,29 @@ export default function ReportsPage() {
     }
   }
 
-  const getDateRangeText = () => {
+    const getDateRangeText = () => {
+    const { start, end } = getDateRange(dateFilter)
+    const formatDate = (date: Date) => date.toLocaleDateString()
+
     switch (dateFilter) {
       case "today":
         return "Today"
+      case "yesterday":
+        return "Yesterday"
       case "week":
-        return "Last 7 Days"
+        return "This Week"
+      case "lastWeek":
+        return "Last Week"
       case "month":
-        return "Last 30 Days"
+        return "This Month"
+      case "lastMonth":
+        return "Last Month"
+      case "year":
+        return "This Year"
       case "custom":
-        if (startDate && endDate) {
-          return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
-        }
-        return "Custom Range"
+        return `${formatDate(start)} - ${formatDate(end)}`
       default:
-        return "All Time"
+        return "Today"
     }
   }
 
@@ -462,8 +450,12 @@ export default function ReportsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">Last 7 Days</SelectItem>
-                    <SelectItem value="month">Last 30 Days</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="lastWeek">Last Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                    <SelectItem value="lastMonth">Last Month</SelectItem>
+                    <SelectItem value="year">This Year</SelectItem>
                     <SelectItem value="custom">Custom Range</SelectItem>
                   </SelectContent>
                 </Select>

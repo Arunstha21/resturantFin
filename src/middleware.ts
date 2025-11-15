@@ -29,7 +29,7 @@ export default withAuth(
     const token = req.nextauth.token;
 
     if (!token) {
-      return new Response("Unauthorized", { status: 401 });
+      return NextResponse.redirect(new URL("/", req.url));
     }
 
     const role = token.role as "admin" | "manager" | "staff";
@@ -41,7 +41,7 @@ export default withAuth(
     );
 
     if (!isAllowed) {
-      return new Response("Unauthorized", { status: 401 });
+      return NextResponse.redirect(new URL("/dashboard/records", req.url));
     }
 
     return NextResponse.next();

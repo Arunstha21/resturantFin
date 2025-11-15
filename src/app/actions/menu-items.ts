@@ -37,6 +37,7 @@ export async function createMenuItem(data: MenuItemInput) {
     const menuItem = new MenuItem({
       ...validatedData,
       createdBy: session.user.id,
+      organization: session.user.organization,
     })
 
     await menuItem.save()
@@ -69,7 +70,7 @@ export async function updateMenuItem(id: string, data: MenuItemInput) {
     await dbConnect()
 
     const menuItem = await MenuItem.findByIdAndUpdate(id, validatedData, { new: true })
-
+    
     if (!menuItem) {
       throw new Error("Menu item not found")
     }

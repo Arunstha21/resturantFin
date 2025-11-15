@@ -21,9 +21,11 @@ export async function getDashboardStats(dateFilter = "month"): Promise<Dashboard
   const [incomeRecords, expenseRecords] = await Promise.all([
     IncomeRecord.find({
       date: { $gte: start, $lte: end },
+      organization: session.user.organization,
     }),
     ExpenseRecord.find({
       date: { $gte: start, $lte: end },
+      organization: session.user.organization,
     }),
   ])
 
@@ -57,9 +59,11 @@ export async function getChartData(dateFilter = "month"): Promise<ChartData[]> {
   const [incomeRecords, expenseRecords] = await Promise.all([
     IncomeRecord.find({
       date: { $gte: start, $lte: end },
+      organization: session.user.organization,
     }).sort({ date: 1 }),
     ExpenseRecord.find({
       date: { $gte: start, $lte: end },
+      organization: session.user.organization,
     }).sort({ date: 1 }),
   ])
 

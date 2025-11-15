@@ -15,7 +15,7 @@ export async function GET() {
     await dbConnect()
 
     // Get all active due accounts
-    const dueAccounts = await DueAccount.find({ isActive: true })
+    const dueAccounts = await DueAccount.find({ isActive: true, organization: session.user.organization })
 
     const accountsWithOrders = await Promise.all(
       dueAccounts.map(async (accountDoc) => {
@@ -24,6 +24,7 @@ export async function GET() {
         const pendingOrdersDocs = await IncomeRecord.find({
           dueAccountId: account._id,
           paymentStatus: "pending",
+          organization: session.user.organization,
         }).sort({ date: -1 })
 
         const pendingOrders = pendingOrdersDocs.map((orderDoc) => {

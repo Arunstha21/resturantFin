@@ -1,9 +1,11 @@
-import mongoose, { type Document, Schema } from "mongoose"
+import mongoose, { Schema, Document, models } from "mongoose";
 
 export interface IOrderItem {
   name: string
   quantity: number
+  category?: string
   price: number
+  menuItemId?: mongoose.Types.ObjectId
 }
 
 export interface IIncomeRecord extends Document {
@@ -20,6 +22,7 @@ export interface IIncomeRecord extends Document {
   digitalAmount?: number
   date: Date
   notes?: string
+  organization: mongoose.Types.ObjectId
   createdBy: mongoose.Types.ObjectId
   isDueAccount?: boolean
   dueAccountId?: string
@@ -41,6 +44,13 @@ const OrderItemSchema = new Schema<IOrderItem>({
     type: Number,
     required: true,
     min: 0,
+  },
+  category: {
+    type: String,
+  },
+  menuItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "MenuItem",
   },
 })
 
@@ -111,6 +121,11 @@ const IncomeRecordSchema = new Schema<IIncomeRecord>(
       type: String,
       maxlength: 500,
     },
+    organization: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -127,4 +142,4 @@ const IncomeRecordSchema = new Schema<IIncomeRecord>(
   },
 )
 
-export default mongoose.models.IncomeRecord || mongoose.model<IIncomeRecord>("IncomeRecord", IncomeRecordSchema)
+export default models.IncomeRecord || mongoose.model<IIncomeRecord>("IncomeRecord", IncomeRecordSchema)

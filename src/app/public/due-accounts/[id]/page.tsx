@@ -91,7 +91,8 @@ export default function PublicDueAccountPage({ params }: PublicDueAccountPagePro
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Due Account Statement</h1>
+          <h1 className="text-3xl font-bold mb-2">{account.organization}</h1>
+          <h2 className="text-2xl font-bold mb-2">Due Account Statement</h2>
           <p className="text-muted-foreground">Customer: {account.customerName}</p>
           <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleString()}</p>
         </div>

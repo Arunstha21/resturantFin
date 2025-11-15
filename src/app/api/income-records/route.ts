@@ -26,20 +26,21 @@ export async function GET(request: NextRequest) {
     const limit = Number.parseInt(searchParams.get("limit") || "500")
     const skip = (page - 1) * limit
 
-    let query = {}
-    let countQuery = {}
+    let query: any = { organization: session.user.organization }
+    let countQuery: any = {}
 
     // Apply role-based filtering
-    if (userRole.toLowerCase() === "manager") {
+    if (userRole.toLowerCase() === "manager" || userRole.toLowerCase() === "staff") {
       // Get today's date range (start and end of today)
       const today = new Date()
       const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
       const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-
+      
       // Manager can see:
       // 1. All records from today
       // 2. All old records with pending payment status
       query = {
+        organization: session.user.organization,
         $or: [
           {
             // Today's records (all payment statuses)

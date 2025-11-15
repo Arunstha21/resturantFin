@@ -2,8 +2,6 @@ import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import dbConnect from "./db"
-import User from "@/models/User"
-
 import { DefaultSession, DefaultUser } from "next-auth"
 
 declare module "next-auth" {
@@ -11,11 +9,17 @@ declare module "next-auth" {
     user: {
       id: string
       role?: string
+      organization: string
+      organizationName: string
+      superAdmin: boolean
     } & DefaultSession["user"]
   }
   interface User extends DefaultUser {
     role?: string
     id: string
+    organization: string
+    organizationName: string
+    superAdmin: boolean
   }
 }
 
@@ -32,16 +36,13 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        await dbConnect()
-
-        const user = await User.findOne({ email: credentials.email })
-
+        const user = await getUserData(credentials.email)
+        
         if (!user) {
           return null
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
-
         if (!isPasswordValid) {
           return null
         }
@@ -51,6 +52,14 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          organization: user.organization?._id
+            ? user.organization._id.toString()
+            : user.organization?.toString() ?? "",
+          organizationName:
+            typeof user.organization === "object" && user.organization?.name
+              ? user.organization.name
+              : "",
+          superAdmin: user.superAdmin || false,
         }
       },
     }),
@@ -62,14 +71,20 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
-        token.role = (user as { role?: string }).role
+        token.role = user.role
+        token.organization = user.organization
+        token.organizationName = user.organizationName
+        token.superAdmin = user.superAdmin
       }
       return token
     },
     async session({ session, token }) {
-      if (session.user && token) {
+      if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.organization = token.organization as string
+        session.user.organizationName = token.organizationName as string
+        session.user.superAdmin = token.superAdmin as boolean
       }
       return session
     },
@@ -77,4 +92,20 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
   },
+}
+
+
+async function getUserData(email: string) {
+  await dbConnect()
+  const User = (await import("@/models/User")).default;
+  const user = await User.findOne({ email })
+
+  const Organization = (await import("@/models/Organization")).default;
+  const organizationData = await Organization.findById(user?.organization)
+
+  if (user && organizationData) {
+    user.organization = organizationData
+  }
+
+  return user
 }

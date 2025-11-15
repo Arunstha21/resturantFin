@@ -11,6 +11,7 @@ import { deleteUser } from "@/app/actions/users"
 import { Edit, Trash2, Plus, Search, Users } from "lucide-react"
 import type { User } from "@/types"
 import { toast } from "sonner"
+import { getSession } from "next-auth/react"
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -19,6 +20,29 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [organizations, setOrganizations] = useState<{ _id: string; name: string }[]>([])
+  const [session, setSession] = useState<any>(null)
+  const superAdmin = session?.user?.superAdmin
+
+  useEffect(() => {
+    getSession().then(setSession)
+  }, [])
+  
+  useEffect(() => {
+    fetchOrganizations()
+  }, [superAdmin === true])
+
+  const fetchOrganizations = async () => {
+    try {
+      const response = await fetch("/api/organization")
+      const data = await response.json()
+      setOrganizations(data.organizations || [])
+    } catch (error) {
+      console.error("Error fetching organizations:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchUsers()
@@ -67,7 +91,6 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-2">
@@ -145,7 +168,7 @@ export default function UsersPage() {
           </div>
 
           <div className="lg:col-span-1">
-            {showForm && <UserForm user={editingUser || undefined} onSuccess={handleFormSuccess} />}
+            {showForm && <UserForm key={editingUser?._id || "new"} superAdmin={superAdmin} organizations={organizations} user={editingUser || undefined} onSuccess={handleFormSuccess} />}
           </div>
         </div>
       </main>

@@ -175,7 +175,7 @@ export default function DueAccountsPage() {
   const safeAccounts = Array.isArray(dueAccountSummary) ? dueAccountSummary : []
   const filteredAccounts = safeAccounts.filter(
     (account) => account.customerName && account.customerName.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  ).sort((a, b) => (b.totalDueAmount || 0) - (a.totalDueAmount || 0))
 
   const totalDueAmount = filteredAccounts.reduce((sum, account) => sum + (account.totalDueAmount || 0), 0)
   const accountsWithDues = filteredAccounts.filter((account) => (account.totalDueAmount || 0) > 0)
@@ -317,14 +317,9 @@ export default function DueAccountsPage() {
                             </div>
                           </div>
                         </div>
-                        {account.totalDueAmount > 0 && (
-                          <DuePaymentDialog
-                            account={dueAccounts.find((a) => a._id === account._id)!}
-                            onSuccess={handleRefresh}
-                          />
-                        )}
                         <div className="flex items-center gap-4">
-                          <div className="text-right">
+                          <div className="md:flex items-center gap-6">
+                          <div className="flex items-center gap-4">
                             <div
                               className={`text-xl font-bold ${(account.totalDueAmount || 0) > 0 ? "text-red-600" : "text-green-600"}`}
                             >
@@ -334,6 +329,12 @@ export default function DueAccountsPage() {
                               {(account.totalDueAmount || 0) > 0 ? "Total Due" : "No Dues"}
                             </div>
                           </div>
+                          {account.totalDueAmount > 0 && (
+                            <DuePaymentDialog
+                              account={dueAccounts.find((a) => a._id === account._id)!}
+                              onSuccess={handleRefresh}
+                            />
+                          )}
 
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             {/* Edit Account Button */}
@@ -395,6 +396,7 @@ export default function DueAccountsPage() {
                             ) : (
                               <ChevronDown className="h-5 w-5 text-muted-foreground" />
                             )}
+                          </div>
                           </div>
                         </div>
                       </div>

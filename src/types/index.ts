@@ -103,6 +103,7 @@ export interface PaymentResult {
 export interface DueAccountSummary {
   _id: string
   customerName: string
+  organization: string
   customerPhone?: string
   totalDueAmount: number
   pendingOrdersCount: number
@@ -124,4 +125,32 @@ export interface MenuItem {
   _offline?: boolean
   _localId?: string
   _timestamp?: number
+}
+
+export interface Organization {
+  _id: string
+  name: string
+  shortName?: string
+  users: string[]
+  address?: string
+  phone?: string
+  email?: string
+  taxId?: string
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface OrganizationWithUsers {
+  _id: string
+  name: string
+  shortName?: string
+  users: User[]
+  address?: string
+  phone?: string
+  email?: string
+  taxId?: string
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
 }

@@ -22,6 +22,12 @@ export function getDateRange(filter: string) {
         start: startOfDay(now),
         end: endOfDay(now),
       }
+    case "yesterday":
+      const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+      return {
+        start: startOfDay(yesterday),
+        end: endOfDay(yesterday),
+      }
     case "week":
       return {
         start: startOfWeek(now),

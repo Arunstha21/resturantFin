@@ -26,6 +26,7 @@ export async function createIncomeRecord(data: IncomeRecordInput) {
   const record = await IncomeRecord.create({
     ...validatedData,
     createdBy: session.user.id,
+    organization: session.user.organization,
   })
 
   revalidatePath("/dashboard")

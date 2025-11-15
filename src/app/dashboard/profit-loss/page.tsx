@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { CalendarIcon, Download, TrendingUp, TrendingDown, DollarSign, Receipt, Clock } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, getDateRange } from "@/lib/utils"
 import { useOffline } from "@/hooks/use-offline"
 import { toast } from "sonner"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
@@ -57,55 +57,6 @@ export default function ProfitLossPage() {
 
   const { isOnline } = useOffline()
 
-  // Calculate date range based on selection
-  const getDateRange = useMemo(() => {
-    const now = new Date()
-    let start: Date
-    let end: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
-
-    switch (dateRange) {
-      case "today":
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        break
-      case "yesterday":
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
-        end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59)
-        break
-      case "thisWeek":
-        const dayOfWeek = now.getDay()
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek)
-        break
-      case "lastWeek":
-        const lastWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() - 7)
-        const lastWeekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() - 1, 23, 59, 59)
-        start = lastWeekStart
-        end = lastWeekEnd
-        break
-      case "thisMonth":
-        start = new Date(now.getFullYear(), now.getMonth(), 1)
-        break
-      case "lastMonth":
-        start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
-        break
-      case "thisYear":
-        start = new Date(now.getFullYear(), 0, 1)
-        break
-      case "custom":
-        if (startDate && endDate) {
-          start = new Date(startDate)
-          end = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1)
-        } else {
-          start = new Date(now.getFullYear(), now.getMonth(), 1)
-        }
-        break
-      default:
-        start = new Date(now.getFullYear(), now.getMonth(), 1)
-    }
-
-    return { start, end }
-  }, [dateRange, startDate, endDate])
-
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -134,7 +85,23 @@ export default function ProfitLossPage() {
 
   // Calculate P&L data
   const calculatedData = useMemo((): ProfitLossData => {
-    const { start, end } = getDateRange
+    let start: Date;
+    let end: Date;
+    if(dateRange === "custom" && (!startDate || !endDate)) {
+      return {
+        revenue: { total: 0, cash: 0, digital: 0, breakdown: [] },
+        expenses: { total: 0, breakdown: [] },
+        grossProfit: 0,
+        netProfit: 0,
+        profitMargin: 0,
+        pendingCollections: { totalAmount: 0, recordCount: 0, breakdown: [] },
+      }
+    }else if(dateRange === "custom") {
+      start = new Date(startDate)
+      end = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1)
+    } else {
+      ({ start, end } = getDateRange(dateRange))
+    }
 
     // Filter records by date range
     const filteredIncome = incomeRecords.filter((record) => {
@@ -289,7 +256,7 @@ export default function ProfitLossPage() {
   }
 
   const getDateRangeLabel = () => {
-    const { start, end } = getDateRange
+    const { start, end } = getDateRange(dateRange)
     const formatDate = (date: Date) => date.toLocaleDateString()
 
     switch (dateRange) {
@@ -297,20 +264,20 @@ export default function ProfitLossPage() {
         return "Today"
       case "yesterday":
         return "Yesterday"
-      case "thisWeek":
+      case "week":
         return "This Week"
       case "lastWeek":
         return "Last Week"
-      case "thisMonth":
+      case "month":
         return "This Month"
       case "lastMonth":
         return "Last Month"
-      case "thisYear":
+      case "year":
         return "This Year"
       case "custom":
         return `${formatDate(start)} - ${formatDate(end)}`
       default:
-        return "This Month"
+        return "Today"
     }
   }
 
@@ -372,11 +339,11 @@ export default function ProfitLossPage() {
                 <SelectContent>
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="yesterday">Yesterday</SelectItem>
-                  <SelectItem value="thisWeek">This Week</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
                   <SelectItem value="lastWeek">Last Week</SelectItem>
-                  <SelectItem value="thisMonth">This Month</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
                   <SelectItem value="lastMonth">Last Month</SelectItem>
-                  <SelectItem value="thisYear">This Year</SelectItem>
+                  <SelectItem value="year">This Year</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>

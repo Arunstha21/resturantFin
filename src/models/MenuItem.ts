@@ -1,4 +1,4 @@
-import mongoose, { type Document, Schema } from "mongoose"
+import mongoose, { Schema, Document, models } from "mongoose";
 
 export interface IMenuItem extends Document {
   name: string
@@ -8,6 +8,7 @@ export interface IMenuItem extends Document {
   isAvailable: boolean
   image?: string
   createdBy: object
+  organization: mongoose.Types.ObjectId
   createdAt: Date
   updatedAt: Date
 }
@@ -45,10 +46,15 @@ const MenuItemSchema = new Schema<IMenuItem>(
       ref: "User",
       required: true,
     },
+    organization: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
   },
   {
     timestamps: true,
   },
 )
 
-export default mongoose.models.MenuItem || mongoose.model<IMenuItem>("MenuItem", MenuItemSchema)
+export default models.MenuItem || mongoose.model<IMenuItem>("MenuItem", MenuItemSchema)

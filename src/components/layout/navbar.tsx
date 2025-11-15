@@ -41,16 +41,20 @@ const baseNavigation = [
   { name: "Reports", shortName: "Rpt", href: "/dashboard/reports", icon: FileText },
   { name: "Menu", shortName: "Menu", href: "/dashboard/menu-management", icon: FileText },
   { name: "Due Accounts", shortName: "Due", href: "/dashboard/due-accounts", icon: DollarSign },
-]
-
-const adminExtra = [
-  { name: "Users", shortName: "Users", href: "/dashboard/users", icon: Users },
   { name: "Sales Analytics", shortName: "Sales", href: "/dashboard/sales-analytics", icon: BarChart3 },
 ]
 
-const getNavigation = (role: string | undefined) => {
+const adminExtra = [
+  { name: "Users", shortName: "Users", href: "/dashboard/users", icon: Users }
+]
+
+const superAdminExtra = [
+  { name: "Organizations", shortName: "Orgs", href: "/dashboard/organization", icon: Users },
+]
+
+const getNavigation = (role: string | undefined, superAdmin: boolean | undefined) => {
   return role === "admin"
-    ? [...baseNavigation, ...adminExtra]
+    ? [...baseNavigation, ...adminExtra, ...(superAdmin ? superAdminExtra : [])]
     : role === "manager"
     ? baseNavigation.filter((item) => item.name !== "Menu") 
     : role === "staff"
@@ -63,7 +67,9 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
   const pathname = usePathname()
   const session = serverSession
   const userRole = session?.user?.role
-  const navigation = getNavigation(userRole)
+  const organization = session?.user?.organizationName
+  const superAdmin = session?.user.superAdmin
+  const navigation = getNavigation(userRole, superAdmin)
 
   const handleForceRefresh = async () => {
     await OfflineAPI.forceRefreshCache();
@@ -75,14 +81,14 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
 
   return (
     <nav className="bg-background border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
+    <div className="lg:max-w-[80%] md:max-w-[90%] sm:max-w-[95%] mx-auto">
+      <div className="flex justify-between items-center h-16">
+        <div className="flex items-center">
             <Link href="/dashboard" className="flex items-center">
               <BarChart3 className="h-8 w-8 text-primary" />
-              <span className="ml-2 text-xl font-bold">RestaurantFin</span>
+              <span className="ml-2 text-xl font-bold">{organization ? organization : "RestaurantFin"}</span>
             </Link>
-            <div className="hidden sm:flex sm:space-x-4 md:ml-6">
+            <div className="hidden md:flex md:space-x-4 md:ml-6">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
@@ -94,8 +100,8 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
                   }`}
                 >
                   <item.icon className="h-4 w-4 mr-1" />
-                  <span className="hidden md:inline lg:hidden">{item.shortName}</span>
-                  <span className="hidden lg:inline">{item.name}</span>
+                  <span className="hidden lg:inline xl:hidden">{item.shortName}</span>
+                  <span className="hidden xl:inline">{item.name}</span>
                 </Link>
               ))}
             </div>
@@ -142,7 +148,7 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
                 <Button>Sign In</Button>
               </Link>
             )}
-            <div className="sm:hidden">
+            <div className="md:hidden">
               <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
@@ -152,7 +158,7 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
       </div>
 
       {isMobileMenuOpen && (
-        <div className="sm:hidden border-t">
+        <div className="md:hidden border-t">
           <div className="px-2 pt-2 pb-3 space-y-1">
             <Button
               variant="outline"

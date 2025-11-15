@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+import mongoose, { Document, models } from "mongoose";
 
 export interface IDueAccount extends Document {
   customerName: string
@@ -8,6 +8,7 @@ export interface IDueAccount extends Document {
   totalOrders: number
   pendingOrders: number
   lastOrderDate: Date
+  organization: mongoose.Types.ObjectId
   createdBy: mongoose.Types.ObjectId
   createdAt: Date
   updatedAt: Date
@@ -49,6 +50,11 @@ const dueAccountSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -64,8 +70,8 @@ const dueAccountSchema = new mongoose.Schema(
   },
 )
 
-// Index for faster queries
 dueAccountSchema.index({ customerName: 1, isActive: 1 })
 dueAccountSchema.index({ createdBy: 1 })
+dueAccountSchema.index({ organization: 1 })
 
-export default mongoose.models.DueAccount || mongoose.model<IDueAccount>("DueAccount", dueAccountSchema)
+export default models.DueAccount || mongoose.model<IDueAccount>("DueAccount", dueAccountSchema)

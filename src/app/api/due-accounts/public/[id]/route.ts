@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params
     await dbConnect()
 
-    const account = await DueAccount.findById(id)
+    const account = await DueAccount.findById(id).populate('organization', 'name')
     if (!account || !account.isActive) {
       return NextResponse.json({ error: "Account not found" }, { status: 404 })
     }
@@ -38,6 +38,7 @@ export async function GET(
       success: true,
       account: {
         customerName: account.customerName,
+        organization: (account.organization as any)?.name || "N/A",
         totalDueAmount,
         pendingOrdersCount: pendingOrders.length,
         lastOrderDate: account.lastOrderDate,

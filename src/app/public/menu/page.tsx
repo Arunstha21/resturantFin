@@ -17,7 +17,7 @@ interface MenuItem {
   image?: string
 }
 
-export default function ChiyaStoryMenu() {
+export default function Menu() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)

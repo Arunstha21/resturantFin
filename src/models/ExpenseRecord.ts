@@ -1,4 +1,4 @@
-import mongoose, { type Document, Schema } from "mongoose"
+import mongoose, { Schema, Document, models } from "mongoose";
 
 export interface IExpenseRecord extends Document {
   amount: number
@@ -8,6 +8,7 @@ export interface IExpenseRecord extends Document {
   date: Date
   receiptNumber?: string
   notes?: string
+  organization: mongoose.Types.ObjectId
   createdBy: mongoose.Types.ObjectId
   createdAt: Date
   updatedAt: Date
@@ -42,6 +43,11 @@ const ExpenseRecordSchema = new Schema<IExpenseRecord>(
       type: String,
       maxlength: 500,
     },
+    organization: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -53,4 +59,4 @@ const ExpenseRecordSchema = new Schema<IExpenseRecord>(
   },
 )
 
-export default mongoose.models.ExpenseRecord || mongoose.model<IExpenseRecord>("ExpenseRecord", ExpenseRecordSchema)
+export default models.ExpenseRecord || mongoose.model<IExpenseRecord>("ExpenseRecord", ExpenseRecordSchema)

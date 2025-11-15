@@ -20,7 +20,6 @@ import { OfflineAPI } from "@/lib/offline/offline-api"
 import { formatCurrency } from "@/lib/utils"
 import { useOffline } from "../../hooks/use-offline"
 import type { IncomeRecord } from "@/types"
-import { MENU_ITEMS, POPULAR_ITEMS } from "./menu-items"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -45,13 +44,48 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [dueAccounts, setDueAccounts] = useState<any[]>([])
   const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
   const [editingItems, setEditingItems] = useState<Set<number>>(new Set()) // Track which items are being edited
+  const [menuItems, setMenuItems] = useState<{
+    category: string[]
+    items: Record<string, { _id: string; name: string; price: number; category: string; actualCategory: string }[]>
+  }>({ category: [], items: {} })
+
+  const fetchMenuItems = async () => {
+    try {
+      const data = await OfflineAPI.getMenuItems()
+
+      const categories = Array.from(new Set(data.map((item: any) => item.incomeCategory || item.category)))
+      categories.sort((a, b) => {
+        if (a === "Popular") return -1
+        if (b === "Popular") return 1
+        return 0
+      })
+      const itemMap: Record<string, { _id: string; name: string; price: number; category: string; actualCategory: string}[]> = {} 
+
+      categories.forEach((category) => {
+        itemMap[category] = data
+          .filter((item: any) => (item.incomeCategory || item.category) === category)
+          .sort((a: any, b: any) => (b.totalSold || 0) - (a.totalSold || 0)) // DESCENDING
+          .map((item: any) => ({
+            _id: item._id,
+            name: item.name,
+            price: Number(item.price) || 0,
+            category: category,
+            actualCategory: item.category,
+          }))
+      })
+      setMenuItems({ category: categories, items: itemMap });
+    } catch (error) {
+      console.error("Error fetching menu items:", error)
+      toast.error("Failed to fetch menu items")
+    }
+  }
 
   const { isOnline } = useOffline()
 
   // Memoized default values
   const defaultValues = useMemo(
     (): IncomeRecordInput => ({
-      items: record?.items || [{ name: "", quantity: 1, price: 0 }],
+      items: record?.items || [{ name: "", quantity: 1, price: 0, category: "", menuItemId: "" }],
       totalAmount: record?.totalAmount || 0,
       subtotal: record?.subtotal || 0,
       discount: record?.discount || 0,
@@ -178,6 +212,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
     let isMounted = true
     const fetchDueAccounts = async () => {
       try {
+        fetchMenuItems()
         const accounts = await OfflineAPI.getDueAccounts()
         if (isMounted) {
           setDueAccounts(accounts || [])
@@ -212,7 +247,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
   // Quick add menu item with better keyboard control
   const addMenuItem = useCallback(
-    (menuItem: { name: string; price: number }) => {
+    (menuItem: { name: string; price: number; actualCategory: string; _id: string }) => {
       // Prevent any input focus and keyboard popup
       const activeElement = document.activeElement as HTMLElement
       if (activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")) {
@@ -234,10 +269,10 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
         if (emptyIndex !== -1) {
           // Replace the first empty item
-          update(emptyIndex, { name: menuItem.name, quantity: 1, price: menuItem.price })
+          update(emptyIndex, { name: menuItem.name, quantity: 1, price: menuItem.price, category: menuItem.actualCategory, menuItemId: menuItem._id })
         } else {
           // No empty items, append new one
-          append({ name: menuItem.name, quantity: 1, price: menuItem.price })
+          append({ name: menuItem.name, quantity: 1, price: menuItem.price, category: menuItem.actualCategory, menuItemId: menuItem._id })
         }
       }
 
@@ -263,7 +298,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         cashAmount: formState.isSplitPayment ? Number(data.cashAmount) || 0 : 0,
         digitalAmount: formState.isSplitPayment ? Number(data.digitalAmount) || 0 : 0,
       }
-
+      
       const result = record
         ? await OfflineAPI.updateIncomeRecord(record._id, formData)
         : await OfflineAPI.createIncomeRecord(formData)
@@ -391,113 +426,52 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             <Label>All Menu Items</Label>
             <div className="border rounded-lg p-3">
               <div className="max-h-48 overflow-y-auto space-y-4">
-                {/* Popular Items at the top */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm border-b border-blue-200 pb-1 sticky top-0 bg-neutral-950 text-white">
-                    Popular Items
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {POPULAR_ITEMS.map((item) => {
-                      const existingItem = watchedItems?.find(
-                        (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
-                      )
-                      const currentQuantity = existingItem?.quantity || 0
+              {Object.entries(menuItems.items).map(([category, items]) => (
+              <div key={category} className="space-y-2">
+                <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
+                {category}
+                </h4>
 
-                      return (
-                        <Button
-                          key={item.name}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            addMenuItem(item)
-                          }}
-                          onTouchStart={(e) => {
-                            // Prevent any touch-related focus
-                            e.preventDefault()
-                          }}
-                          className="justify-start text-left h-auto p-2 relative bg-blue-50 hover:bg-blue-100 border-blue-200 touch-manipulation"
-                          tabIndex={-1}
-                        >
-                          <div className="w-full pointer-events-none">
-                            <div className="font-medium text-xs truncate">{item.name}</div>
-                            <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
-                            {currentQuantity > 0 && (
-                              <Badge
-                                variant="default"
-                                className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
-                              >
-                                {currentQuantity}
-                              </Badge>
-                            )}
-                          </div>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Regular categories with popular items filtered out */}
-                {Object.entries(MENU_ITEMS).map(([category, items]) => {
-                  // Filter out popular items from each category
-                  const filteredItems = items.filter(
-                    (item) => !POPULAR_ITEMS.some((popular) => popular.name === item.name),
-                  )
-
-                  // Only show category if it has items after filtering
-                  if (filteredItems.length === 0) return null
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {items.map((item) => {
+                  const existingItem = watchedItems?.find(
+                    (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
+                  );
+                  const currentQuantity = existingItem?.quantity || 0;
 
                   return (
-                    <div key={category} className="space-y-2">
-                      <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
-                        {category}
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {filteredItems.map((item) => {
-                          const existingItem = watchedItems?.find(
-                            (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
-                          )
-                          const currentQuantity = existingItem?.quantity || 0
-
-                          return (
-                            <Button
-                              key={item.name}
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                addMenuItem(item)
-                              }}
-                              onTouchStart={(e) => {
-                                // Prevent any touch-related focus
-                                e.preventDefault()
-                              }}
-                              className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200 touch-manipulation"
-                              tabIndex={-1}
-                            >
-                              <div className="w-full pointer-events-none">
-                                <div className="font-medium text-xs truncate">{item.name}</div>
-                                <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
-                                {currentQuantity > 0 && (
-                                  <Badge
-                                    variant="default"
-                                    className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
-                                  >
-                                    {currentQuantity}
-                                  </Badge>
-                                )}
-                              </div>
-                            </Button>
-                          )
-                        })}
+                    <Button
+                      key={item._id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addMenuItem(item);
+                      }}
+                      onTouchStart={(e) => e.preventDefault()}
+                      className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200 touch-manipulation"
+                      tabIndex={-1}
+                    >
+                      <div className="w-full pointer-events-none">
+                        <div className="font-medium text-xs truncate">{item.name}</div>
+                        <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
+                        {currentQuantity > 0 && (
+                          <Badge
+                            variant="default"
+                            className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
+                          >
+                            {currentQuantity}
+                          </Badge>
+                        )}
                       </div>
-                    </div>
-                  )
+                    </Button>
+                  );
                 })}
+                </div>
+              </div>
+              ))}
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
