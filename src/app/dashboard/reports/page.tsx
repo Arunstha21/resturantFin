@@ -37,8 +37,8 @@ export default function ReportsPage() {
   const fetchRecords = async () => {
     try {
       const [incomeResponse, expenseResponse] = await Promise.all([
-        fetch("/api/income-records?limit=10000"),
-        fetch("/api/expense-records?limit=10000"),
+        fetch("/api/income-records?limit=100000&forReport=true"),
+        fetch("/api/expense-records?limit=100000&forReport=true"),
       ])
 
       const incomeData = await incomeResponse.json()

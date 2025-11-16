@@ -24,13 +24,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "500")
+    const forReport = searchParams.get("forReport") === "true"
     const skip = (page - 1) * limit
 
     let query: any = { organization: session.user.organization }
     let countQuery: any = {}
 
     // Apply role-based filtering
-    if (userRole.toLowerCase() === "manager" || userRole.toLowerCase() === "staff") {
+    if (forReport !== true && (userRole.toLowerCase() === "manager" || userRole.toLowerCase() === "staff")) {
       // Get today's date range (start and end of today)
       const today = new Date()
       const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
