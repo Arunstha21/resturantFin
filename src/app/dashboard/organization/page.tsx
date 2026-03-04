@@ -1,3 +1,6 @@
+/**
+ * Organization Page - Organization settings and management
+ */
 "use client"
 
 import { useState, useEffect } from "react"

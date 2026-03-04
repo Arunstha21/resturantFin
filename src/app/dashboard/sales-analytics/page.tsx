@@ -1,3 +1,6 @@
+/**
+ * Sales Analytics Page - Comprehensive sales analytics with charts, trends, and item performance
+ */
 "use client"
 
 import { useState, useEffect } from "react"

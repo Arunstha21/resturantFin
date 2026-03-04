@@ -1,11 +1,15 @@
 "use server"
 
+/**
+ * Menu Items - Server actions for CRUD operations on menu items
+ */
+
 import { revalidatePath } from "next/cache"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 import dbConnect from "@/lib/db"
 import MenuItem from "@/models/MenuItem"
+import { requireAuth } from "@/lib/auth"
+import { REVALIDATE_PATHS, ERROR_MESSAGES } from "@/lib/constants"
 
 const menuItemSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -19,131 +23,66 @@ const menuItemSchema = z.object({
 type MenuItemInput = z.infer<typeof menuItemSchema>
 
 export async function createMenuItem(data: MenuItemInput) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized")
-    }
+  const { user } = await requireAuth(["admin", "manager"])
 
-    const userRole = session.user.role?.toLowerCase()
-    if (!userRole || !["admin", "manager"].includes(userRole)) {
-      throw new Error("Insufficient permissions")
-    }
+  const validatedData = menuItemSchema.parse(data)
+  await dbConnect()
 
-    const validatedData = menuItemSchema.parse(data)
+  const menuItem = new MenuItem({
+    ...validatedData,
+    createdBy: user.id,
+    organization: user.organization,
+  })
 
-    await dbConnect()
+  await menuItem.save()
+  REVALIDATE_PATHS.MENU.forEach(path => revalidatePath(path))
 
-    const menuItem = new MenuItem({
-      ...validatedData,
-      createdBy: session.user.id,
-      organization: session.user.organization,
-    })
-
-    await menuItem.save()
-
-    revalidatePath("/menu-management")
-    revalidatePath("/menu")
-    revalidatePath("/records")
-
-    return { success: true, record: JSON.parse(JSON.stringify(menuItem)) }
-  } catch (error) {
-    console.error("Error creating menu item:", error)
-    throw error
-  }
+  return { success: true, record: JSON.parse(JSON.stringify(menuItem)) }
 }
 
 export async function updateMenuItem(id: string, data: MenuItemInput) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized")
-    }
+  await requireAuth(["admin", "manager"])
 
-    const userRole = session.user.role?.toLowerCase()
-    if (!userRole || !["admin", "manager"].includes(userRole)) {
-      throw new Error("Insufficient permissions")
-    }
+  const validatedData = menuItemSchema.parse(data)
+  await dbConnect()
 
-    const validatedData = menuItemSchema.parse(data)
+  const menuItem = await MenuItem.findByIdAndUpdate(id, validatedData, { new: true })
 
-    await dbConnect()
-
-    const menuItem = await MenuItem.findByIdAndUpdate(id, validatedData, { new: true })
-    
-    if (!menuItem) {
-      throw new Error("Menu item not found")
-    }
-
-    revalidatePath("/menu-management")
-    revalidatePath("/menu")
-    revalidatePath("/records")
-
-    return { success: true, record: JSON.parse(JSON.stringify(menuItem)) }
-  } catch (error) {
-    console.error("Error updating menu item:", error)
-    throw error
+  if (!menuItem) {
+    throw new Error(ERROR_MESSAGES.NOT_FOUND)
   }
+
+  REVALIDATE_PATHS.MENU.forEach(path => revalidatePath(path))
+
+  return { success: true, record: JSON.parse(JSON.stringify(menuItem)) }
 }
 
 export async function deleteMenuItem(id: string) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized")
-    }
+  await requireAuth(["admin", "manager"])
 
-    const userRole = session.user.role?.toLowerCase()
-    if (!userRole || !["admin", "manager"].includes(userRole)) {
-      throw new Error("Insufficient permissions")
-    }
+  await dbConnect()
+  const menuItem = await MenuItem.findByIdAndDelete(id)
 
-    await dbConnect()
-
-    const menuItem = await MenuItem.findByIdAndDelete(id)
-
-    if (!menuItem) {
-      throw new Error("Menu item not found")
-    }
-
-    revalidatePath("/menu-management")
-    revalidatePath("/menu")
-    revalidatePath("/records")
-
-    return { success: true }
-  } catch (error) {
-    console.error("Error deleting menu item:", error)
-    throw error
+  if (!menuItem) {
+    throw new Error(ERROR_MESSAGES.NOT_FOUND)
   }
+
+  REVALIDATE_PATHS.MENU.forEach(path => revalidatePath(path))
+
+  return { success: true }
 }
 
 export async function toggleMenuItemAvailability(id: string, isAvailable: boolean) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized")
-    }
+  await requireAuth(["admin", "manager"])
 
-    const userRole = session.user.role?.toLowerCase()
-    if (!userRole || !["admin", "manager"].includes(userRole)) {
-      throw new Error("Insufficient permissions")
-    }
+  await dbConnect()
+  const menuItem = await MenuItem.findByIdAndUpdate(id, { isAvailable }, { new: true })
 
-    await dbConnect()
-
-    const menuItem = await MenuItem.findByIdAndUpdate(id, { isAvailable }, { new: true })
-
-    if (!menuItem) {
-      throw new Error("Menu item not found")
-    }
-
-    revalidatePath("/menu-management")
-    revalidatePath("/menu")
-    revalidatePath("/records")
-
-    return { success: true, record: JSON.parse(JSON.stringify(menuItem)) }
-  } catch (error) {
-    console.error("Error toggling menu item availability:", error)
-    throw error
+  if (!menuItem) {
+    throw new Error(ERROR_MESSAGES.NOT_FOUND)
   }
+
+  REVALIDATE_PATHS.MENU.forEach(path => revalidatePath(path))
+
+  return { success: true, record: JSON.parse(JSON.stringify(menuItem)) }
 }

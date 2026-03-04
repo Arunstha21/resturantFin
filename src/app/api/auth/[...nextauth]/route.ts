@@ -1,3 +1,7 @@
+/**
+ * NextAuth API route handler for authentication
+ */
+
 import NextAuth from "next-auth"
 import { authOptions } from "@/lib/auth"
 

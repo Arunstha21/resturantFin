@@ -1,3 +1,7 @@
+/**
+ * Offline API - Offline-aware API wrapper for seamless data access with automatic sync
+ */
+
 import { syncManager } from "./sync-manager"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { offlineDB } from "./indexeddb"
@@ -6,7 +10,11 @@ import { offlineDB } from "./indexeddb"
 import { createDueAccount, deleteDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
 import { createMenuItem, deleteMenuItem, updateMenuItem } from "@/app/actions/menu-items"
 
-// Enhanced offline-aware API wrapper that uses server actions
+/**
+ * OfflineAPI - Offline-aware API wrapper
+ * Provides seamless offline/online data access with automatic sync and caching
+ */
+
 export class OfflineAPI {
   // Income Records
   static async getIncomeRecords(): Promise<IncomeRecord[]> {

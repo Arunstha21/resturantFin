@@ -1,5 +1,6 @@
 "use client"
 
+// Due Payment Form - Form for recording payments against due accounts
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"

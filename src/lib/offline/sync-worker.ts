@@ -1,6 +1,11 @@
 import { offlineDB, type QueuedOperation, type OfflineRecord } from "./indexeddb"
 import { toast } from "sonner"
 
+/**
+ * Sync Worker - Alternative sync manager (lighter version)
+ * Handles offline/online data synchronization without batching
+ */
+
 export class SyncManager {
   private isOnline = typeof navigator !== "undefined" ? navigator.onLine : true
   private syncInProgress = false

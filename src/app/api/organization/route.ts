@@ -4,12 +4,18 @@ import Organization from "@/models/Organization"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+/**
+ * GET /api/organization
+ *
+ * Fetch all organizations (Super Admin only)
+ */
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id && !session?.user?.superAdmin) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
+
     await dbConnect()
 
     const organizations = await Organization.find({})

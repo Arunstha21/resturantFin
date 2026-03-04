@@ -1,4 +1,6 @@
 "use client"
+
+// Mode Toggle - Theme switcher for light, dark, and system modes
 import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 

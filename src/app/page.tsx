@@ -1,3 +1,6 @@
+/**
+ * Home Page - Root page that redirects authenticated users to dashboard or signin
+ */
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"

@@ -1,5 +1,7 @@
+// Income Record Model - Sales/orders with items, payments, and due account integration
 import mongoose, { Schema, Document, models } from "mongoose";
 
+// Order item - Single item within an order
 export interface IOrderItem {
   name: string
   quantity: number
@@ -8,6 +10,7 @@ export interface IOrderItem {
   menuItemId?: mongoose.Types.ObjectId
 }
 
+// IncomeRecord - Sales/orders
 export interface IIncomeRecord extends Document {
   tableNumber?: string
   customerName?: string
@@ -31,37 +34,17 @@ export interface IIncomeRecord extends Document {
 }
 
 const OrderItemSchema = new Schema<IOrderItem>({
-  name: {
-    type: String,
-    required: true,
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  price: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  category: {
-    type: String,
-  },
-  menuItemId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "MenuItem",
-  },
+  name: { type: String, required: true },
+  quantity: { type: Number, required: true, min: 1 },
+  price: { type: Number, required: true, min: 0 },
+  category: { type: String },
+  menuItemId: { type: mongoose.Schema.Types.ObjectId, ref: "MenuItem" },
 })
 
 const IncomeRecordSchema = new Schema<IIncomeRecord>(
   {
-    tableNumber: {
-      type: String,
-    },
-    customerName: {
-      type: String,
-    },
+    tableNumber: { type: String },
+    customerName: { type: String },
     items: {
       type: [OrderItemSchema],
       required: true,
@@ -70,76 +53,22 @@ const IncomeRecordSchema = new Schema<IIncomeRecord>(
         message: "At least one item is required",
       },
     },
-    totalAmount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    discount: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
-    },
-    tip: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
-    },
-    subtotal: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    paymentMethod: {
-      type: String,
-      enum: ["cash", "digital", "split"],
-      required: true,
-    },
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "completed"],
-      default: "pending",
-    },
-    cashAmount: {
-      type: Number,
-      min: 0,
-      default: 0,
-    },
-    digitalAmount: {
-      type: Number,
-      min: 0,
-      default: 0,
-    },
-    date: {
-      type: Date,
-      required: true,
-      default: Date.now,
-    },
-    notes: {
-      type: String,
-      maxlength: 500,
-    },
-    organization: {
-      type: Schema.Types.ObjectId,
-      ref: "Organization",
-      required: true,
-    },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    totalAmount: { type: Number, required: true, min: 0 },
+    discount: { type: Number, required: true, min: 0, default: 0 },
+    tip: { type: Number, required: true, min: 0, default: 0 },
+    subtotal: { type: Number, required: true, min: 0 },
+    paymentMethod: { type: String, enum: ["cash", "digital", "split"], required: true },
+    paymentStatus: { type: String, enum: ["pending", "completed"], default: "pending" },
+    cashAmount: { type: Number, min: 0, default: 0 },
+    digitalAmount: { type: Number, min: 0, default: 0 },
+    date: { type: Date, required: true, default: Date.now },
+    notes: { type: String, maxlength: 500 },
+    organization: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     isDueAccount: { type: Boolean, default: false },
-    dueAccountId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "DueAccount",
-    },
+    dueAccountId: { type: mongoose.Schema.Types.ObjectId, ref: "DueAccount" },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 )
 
 export default models.IncomeRecord || mongoose.model<IIncomeRecord>("IncomeRecord", IncomeRecordSchema)

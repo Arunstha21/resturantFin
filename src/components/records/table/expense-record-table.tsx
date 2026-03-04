@@ -1,16 +1,8 @@
 "use client"
 
+// Expense Record Table - Data table for expense records with sorting, filtering, and pagination
 import { useState } from "react"
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  flexRender,
-  type SortingState,
-  type ColumnFiltersState,
-} from "@tanstack/react-table"
+import { useReactTable, getCoreRowModel, getFilteredRowModel, getSortedRowModel, getPaginationRowModel, flexRender, type SortingState, type ColumnFiltersState } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,17 +16,7 @@ import type { ExpenseRecord } from "@/types"
 import { useExpenseColumns } from "../hooks/use-expense-columns"
 import { TablePagination } from "./table-pagination"
 import { formatCurrency } from "@/lib/utils"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogTrigger,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogContent, AlertDialogTrigger, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 
 interface ExpenseRecordsTableProps {
   records: ExpenseRecord[]
@@ -44,13 +26,7 @@ interface ExpenseRecordsTableProps {
   isOnline: boolean
 }
 
-export function ExpenseRecordsTable({
-  records,
-  isLoading,
-  onRefresh,
-  onFormSuccess,
-  isOnline,
-}: ExpenseRecordsTableProps) {
+export function ExpenseRecordsTable({ records, isLoading, onRefresh, onFormSuccess, isOnline }: ExpenseRecordsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState("")

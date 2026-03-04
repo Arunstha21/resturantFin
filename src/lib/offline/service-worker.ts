@@ -1,5 +1,9 @@
 /// <reference lib="webworker" />
 
+/**
+ * Service Worker - Offline caching and background sync for static assets and API responses
+ */
+
 // Minimal SyncEvent interface for TypeScript
 interface SyncEvent extends ExtendableEvent {
   readonly tag: string;

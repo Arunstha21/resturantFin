@@ -1,3 +1,7 @@
+/**
+ * Dashboard Layout - Protected dashboard layout with navbar and offline features
+ */
+
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"

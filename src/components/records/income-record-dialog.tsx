@@ -1,5 +1,6 @@
 "use client"
 
+// Income Record Dialog - Dialog for creating and editing income records
 import type React from "react"
 
 import { useState } from "react"

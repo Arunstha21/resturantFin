@@ -1,19 +1,10 @@
 "use client"
 
+// Use Expense Columns - Hook defining table columns for expense records
 import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogTrigger,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogContent, AlertDialogTrigger, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction} from "@/components/ui/alert-dialog"
 import { ExpenseRecordDialog } from "@/components/records/expense-record-dialog"
 import { formatCurrency } from "@/lib/utils"
 import { Trash2, ArrowUpDown, WifiOff } from "lucide-react"

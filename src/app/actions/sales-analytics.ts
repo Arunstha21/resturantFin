@@ -5,6 +5,11 @@ import dbConnect from "@/lib/db"
 import IncomeRecord from "@/models/IncomeRecord"
 import { getServerSession } from "next-auth"
 
+/**
+ * Sales Analytics - Server actions for aggregating sales data
+ * Provides best-selling items, category sales, daily trends, and item history
+ */
+
 export async function getSalesAnalytics(dateFilter = "month") {
   try {
       const session = await getServerSession(authOptions)

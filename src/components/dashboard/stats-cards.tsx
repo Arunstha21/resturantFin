@@ -1,3 +1,4 @@
+// Stats Cards - Dashboard statistics cards for income, expenses, profit, orders
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { DollarSign, TrendingUp, TrendingDown, FileText, Clock, AlertCircle } from "lucide-react"

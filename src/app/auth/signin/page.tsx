@@ -1,3 +1,6 @@
+/**
+ * Sign In Page - Authentication page with NextAuth credentials
+ */
 "use client"
 
 import { useState } from "react"

@@ -1,5 +1,9 @@
 "use client"
 
+/**
+ * Records Page - Income and expense records management with tables
+ */
+
 import { useState, useEffect, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"

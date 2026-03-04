@@ -5,6 +5,11 @@ import DueAccount from "@/models/DueAccount"
 import IncomeRecord from "@/models/IncomeRecord"
 import { authOptions } from "@/lib/auth"
 
+/**
+ * GET /api/due-accounts
+ *
+ * Fetch all active due accounts with their pending orders
+ */
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -14,7 +19,6 @@ export async function GET() {
 
     await dbConnect()
 
-    // Get all active due accounts
     const dueAccounts = await DueAccount.find({ isActive: true, organization: session.user.organization })
 
     const accountsWithOrders = await Promise.all(
@@ -36,7 +40,7 @@ export async function GET() {
           }
         })
 
-        const totalDueAmount = pendingOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+        const totalDueAmount = pendingOrders.reduce((sum, order) => sum + order.totalAmount, 0)
 
         return {
           ...account,

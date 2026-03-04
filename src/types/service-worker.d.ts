@@ -1,3 +1,4 @@
+// Service Worker type definitions extending WorkerGlobalScope for PWA
 // Service Worker type definitions
 interface ServiceWorkerGlobalScope extends WorkerGlobalScope {
   skipWaiting(): Promise<void>

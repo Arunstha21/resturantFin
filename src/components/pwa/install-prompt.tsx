@@ -1,5 +1,5 @@
 "use client"
-
+//Install Prompt - PWA install prompt shown when beforeinstallprompt fires
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"

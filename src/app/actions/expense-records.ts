@@ -1,72 +1,61 @@
 "use server"
 
+/**
+ * Expense Records - Server actions for CRUD operations on expense records
+ */
+
 import { revalidatePath } from "next/cache"
-import { getServerSession } from "next-auth"
 import dbConnect from "@/lib/db"
 import ExpenseRecord from "@/models/ExpenseRecord"
 import { expenseRecordSchema, type ExpenseRecordInput } from "@/lib/validations"
-import { authOptions } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
+import { REVALIDATE_PATHS, ERROR_MESSAGES } from "@/lib/constants"
 
 export async function createExpenseRecord(data: ExpenseRecordInput) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
+  const { user } = await requireAuth()
 
   const validatedData = expenseRecordSchema.parse(data)
-
   await dbConnect()
 
   const record = await ExpenseRecord.create({
     ...validatedData,
-    createdBy: session.user.id,
-    organization: session.user.organization,
+    createdBy: user.id,
+    organization: user.organization,
   })
 
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/records")
+  REVALIDATE_PATHS.DASHBOARD.forEach(path => revalidatePath(path))
 
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
 
 export async function updateExpenseRecord(id: string, data: ExpenseRecordInput) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
+  await requireAuth()
 
   const validatedData = expenseRecordSchema.parse(data)
-
   await dbConnect()
 
   const record = await ExpenseRecord.findByIdAndUpdate(id, validatedData, { new: true })
 
   if (!record) {
-    throw new Error("Record not found")
+    throw new Error(ERROR_MESSAGES.NOT_FOUND)
   }
 
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/records")
+  REVALIDATE_PATHS.DASHBOARD.forEach(path => revalidatePath(path))
 
   return { success: true, record: JSON.parse(JSON.stringify(record)) }
 }
 
 export async function deleteExpenseRecord(id: string) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized")
-  }
+  await requireAuth()
 
   await dbConnect()
-
   const record = await ExpenseRecord.findByIdAndDelete(id)
 
   if (!record) {
-    throw new Error("Record not found")
+    throw new Error(ERROR_MESSAGES.NOT_FOUND)
   }
 
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/records")
+  REVALIDATE_PATHS.DASHBOARD.forEach(path => revalidatePath(path))
 
   return { success: true }
 }

@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Restaurant Finance Management System
+
+Comprehensive financial management for restaurants with offline support. Track income, expenses, due accounts, and analytics.
+
+## Features
+
+- **Income & Expense Tracking** - Record sales orders and business expenses
+- **Due Accounts** - Manage customer credit accounts with payment tracking
+- **Dashboard** - Real-time stats and financial charts
+- **Reports** - Profit/loss statements, sales analytics, and item performance
+- **Menu Management** - Manage menu items with categories and pricing
+- **Offline Support** - Works offline with automatic sync when online
+- **Role-based Access** - Admin, Manager, and Staff roles
+- **Multi-organization** - Support for multiple restaurant organizations
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
+- **UI**: shadcn/ui components
+- **Database**: MongoDB with Mongoose
+- **Auth**: NextAuth.js with credentials provider
+- **Offline**: IndexedDB, Service Workers, Background Sync
+- **Forms**: React Hook Form, Zod validation
+- **Charts**: Recharts
+- **Tables**: TanStack Table
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- MongoDB instance (local or Atlas)
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+MONGODB_URI=mongodb://localhost:27017/restaurant-fin
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-secret-key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Running the App
 
-## Learn More
+```bash
+# Development server
+npm run dev
 
-To learn more about Next.js, take a look at the following resources:
+# Build for production
+npm run build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start production server
+npm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://localhost:3000](http://localhost:3000)
 
-## Deploy on Vercel
+## Default User
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+After first run, create an admin user through the signup or use seeded credentials if available.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+src/
+├── app/              # Next.js app router pages and API routes
+├── components/       # React components
+│   ├── dashboard/    # Dashboard-specific components
+│   ├── records/      # Income/expense components
+│   ├── due-accounts/ # Due account components
+│   ├── ui/           # shadcn/ui components
+│   └── offline/      # Offline indicator
+├── lib/              # Utility functions and configurations
+│   └── offline/      # IndexedDB and sync managers
+├── models/           # Mongoose models
+├── types/            # TypeScript type definitions
+└── hooks/            # Custom React hooks
+```
+
+## Offline Architecture
+
+The app uses IndexedDB for local storage and syncs with MongoDB when online:
+- Records are saved locally when offline
+- Queued operations sync automatically when connection restores
+- Service worker caches static assets for instant loading
+
+## License
+
+MIT

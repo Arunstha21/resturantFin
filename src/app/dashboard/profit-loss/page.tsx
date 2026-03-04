@@ -1,5 +1,9 @@
 "use client"
 
+/**
+ * Profit/Loss Page - Profit and loss statement with date filtering and export
+ */
+
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"

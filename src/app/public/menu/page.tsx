@@ -1,3 +1,6 @@
+/**
+ * Public Menu Page - Public menu display for customers with categories and images
+ */
 "use client"
 
 import { useState, useEffect } from "react"

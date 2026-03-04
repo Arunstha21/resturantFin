@@ -1,7 +1,8 @@
 "use client"
 
-import type React from "react"
+// Expense Record Dialog - Dialog for creating and editing expense records
 
+import type React from "react"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"

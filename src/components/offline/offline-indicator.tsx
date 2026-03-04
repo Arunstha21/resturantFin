@@ -1,22 +1,12 @@
 "use client"
 
+// Offline Indicator - Shows online/offline status, sync state, and pending operations
 import { useOffline } from "../../hooks/use-offline"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import {
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Clock,
-  Database,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle,
-  Loader2,
-} from "lucide-react"
+import { Wifi, WifiOff, RefreshCw, Clock, Database, Trash2, ChevronDown, ChevronUp, CheckCircle, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useState, useEffect } from "react"
 

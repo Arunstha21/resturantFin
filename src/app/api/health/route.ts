@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server"
 
+/**
+ * GET /api/health
+ *
+ * Simple health check endpoint for uptime monitoring and connectivity testing
+ */
+
 export async function GET() {
   return NextResponse.json({
     status: "ok",

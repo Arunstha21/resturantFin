@@ -1,5 +1,9 @@
 "use client"
 
+/**
+ * Menu Management Page - Menu items CRUD with category management
+ */
+
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"

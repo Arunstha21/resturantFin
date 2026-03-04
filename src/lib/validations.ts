@@ -1,3 +1,4 @@
+// Zod validation schemas for form inputs and API validation
 import { z } from "zod"
 
 export const orderItemSchema = z.object({
@@ -29,13 +30,10 @@ export const incomeRecordSchema = z.object({
   customerName: z.string().optional(),
   notes: z.string().optional(),
   isDueAccount: z.boolean().optional(),
-  dueAccountId: z
-    .string()
-    .optional()
-    .transform((val) => {
-      return val && val.trim() !== "" ? val : undefined
-    }),
-});
+  dueAccountId: z.string().optional().transform((val) => {
+    return val && val.trim() !== "" ? val : undefined
+  }),
+})
 
 export const expenseRecordSchema = z.object({
   amount: z.number().min(0.01, "Amount must be greater than 0"),
@@ -65,9 +63,7 @@ export const organizationSchema = z.object({
 export const userSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z
-  .union([z.string().min(6, "Password must be at least 6 characters"), z.literal("")])
-  .optional(),
+  password: z.union([z.string().min(6, "Password must be at least 6 characters"), z.literal("")]).optional(),
   organization: z.string().optional(),
   role: z.enum(["admin", "manager", "staff"]),
 })
@@ -78,6 +74,7 @@ export const filterSchema = z.object({
   startDate: z.date().optional(),
   endDate: z.date().optional(),
 })
+
 export const dueAccountSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerPhone: z.string().optional(),
@@ -91,6 +88,7 @@ export const duePaymentSchema = z.object({
   }),
 })
 
+// TypeScript types inferred from schemas
 export type DueAccountInput = z.infer<typeof dueAccountSchema>
 export type OrderItemInput = z.infer<typeof orderItemSchema>
 export type IncomeRecordInput = z.infer<typeof incomeRecordSchema>

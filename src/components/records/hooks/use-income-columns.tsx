@@ -1,19 +1,10 @@
 "use client"
 
+// Use Income Columns - Hook defining table columns for income records
 import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogTrigger,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogContent, AlertDialogTrigger, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
 import { formatCurrency } from "@/lib/utils"
 import { Trash2, ArrowUpDown, ChevronDown, ChevronRightIcon, Users, Banknote, Smartphone, WifiOff } from "lucide-react"
@@ -27,12 +18,7 @@ interface UseIncomeColumnsProps {
   onDelete: (id: string) => Promise<void>
 }
 
-export function useIncomeColumns({
-  expandedGroups,
-  toggleGroupExpansion,
-  onFormSuccess,
-  onDelete,
-}: UseIncomeColumnsProps): ColumnDef<GroupedIncomeRecord>[] {
+export function useIncomeColumns({ expandedGroups, toggleGroupExpansion,  onFormSuccess, onDelete }: UseIncomeColumnsProps): ColumnDef<GroupedIncomeRecord>[] {
   return useMemo(
     () => [
       {

@@ -1,16 +1,8 @@
 "use client"
 
+// Income Record Table - Data table for income records with sorting, filtering, and pagination
 import { useState, useCallback } from "react"
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  flexRender,
-  type SortingState,
-  type ColumnFiltersState,
-} from "@tanstack/react-table"
+import { useReactTable, getCoreRowModel, getFilteredRowModel, getSortedRowModel, getPaginationRowModel, flexRender, type SortingState, type ColumnFiltersState } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,35 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { IncomeRecordDialog } from "@/components/records/income-record-dialog"
 import { OfflineAPI } from "@/lib/offline/offline-api"
-import {
-  Search,
-  RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  Users,
-  Banknote,
-  Smartphone,
-  WifiOff,
-  Trash2,
-  Edit,
-} from "lucide-react"
+import { Search, RefreshCw, ChevronDown, ChevronRight, Users, Banknote, Smartphone, WifiOff, Trash2, Edit } from "lucide-react"
 import { toast } from "sonner"
 import type { IncomeRecord } from "@/types"
 import { useGroupedIncomeRecords } from "../hooks/use-grouped-income-records"
 import { useIncomeColumns } from "../hooks/use-income-columns"
 import { TablePagination } from "./table-pagination"
 import { formatCurrency } from "@/lib/utils"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogTrigger,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogContent, AlertDialogTrigger, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 
 interface IncomeRecordsTableProps {
   records: IncomeRecord[]
@@ -56,13 +27,7 @@ interface IncomeRecordsTableProps {
   isOnline: boolean
 }
 
-export function IncomeRecordsTable({
-  records,
-  isLoading,
-  onRefresh,
-  onFormSuccess,
-  isOnline,
-}: IncomeRecordsTableProps) {
+export function IncomeRecordsTable({ records, isLoading, onRefresh, onFormSuccess, isOnline }: IncomeRecordsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState("")

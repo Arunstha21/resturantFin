@@ -1,16 +1,10 @@
 "use client"
 
+// Due Payment Dialog - Dialog for recording payments on due accounts
 import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { IndianRupee } from "lucide-react"
 import type { DueAccount, PaymentResult } from "@/types"
 import { DuePaymentForm } from "./due-payment-form"

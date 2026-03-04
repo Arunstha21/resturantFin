@@ -1,3 +1,6 @@
+/**
+ * Users Page - User management with role-based access control
+ */
 "use client"
 
 import { useState, useEffect } from "react"

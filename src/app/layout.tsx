@@ -1,3 +1,7 @@
+/**
+ * Root Layout - Main app layout with theme provider, session, and offline support
+ */
+
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"

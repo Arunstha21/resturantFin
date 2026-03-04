@@ -4,6 +4,15 @@ import dbConnect from "@/lib/db"
 import IncomeRecord from "@/models/IncomeRecord"
 import { authOptions } from "@/lib/auth"
 
+/**
+ * GET /api/income-records
+ *
+ * Fetch income records with role-based access control:
+ * - Admin: All records
+ * - Manager/Staff: Today's records + pending older records
+ *
+ * Query params: page, limit, forReport
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -12,8 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Assuming the session contains role information
-    const userRole = session.user.role // You might need to adjust this based on your session structure
+    const userRole = session.user.role
 
     if (!userRole || !["admin", "manager", "staff"].includes(userRole.toLowerCase())) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
@@ -30,36 +38,21 @@ export async function GET(request: NextRequest) {
     let query: any = { organization: session.user.organization }
     let countQuery: any = {}
 
-    // Apply role-based filtering
+    // Role-based filtering: managers/staff only see today + pending older records
     if (forReport !== true && (userRole.toLowerCase() === "manager" || userRole.toLowerCase() === "staff")) {
-      // Get today's date range (start and end of today)
       const today = new Date()
       const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
       const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-      
-      // Manager can see:
-      // 1. All records from today
-      // 2. All old records with pending payment status
+
       query = {
         organization: session.user.organization,
         $or: [
-          {
-            // Today's records (all payment statuses)
-            date: {
-              $gte: startOfToday,
-              $lt: endOfToday,
-            },
-          },
-          {
-            // Old records with pending status
-            date: { $lt: startOfToday },
-            paymentStatus: "pending",
-          },
+          { date: { $gte: startOfToday, $lt: endOfToday } }, // Today's records
+          { date: { $lt: startOfToday }, paymentStatus: "pending" }, // Pending older records
         ],
       }
       countQuery = query
     }
-    // Admin has access to all records (no additional filtering needed)
 
     const records = await IncomeRecord.find(query)
       .sort({ paymentStatus: -1, date: -1, createdAt: -1 })
@@ -71,12 +64,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       records,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     })
   } catch (error) {
     console.error("Error fetching income records:", error)

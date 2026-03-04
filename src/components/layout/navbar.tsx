@@ -1,32 +1,15 @@
 "use client"
 
+// Navbar - Main navigation bar with menu links and user controls
 import { Session } from "next-auth"
 import { signOut } from "next-auth/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
-
-import {
-  Menu,
-  X,
-  BarChart3,
-  FileText,
-  DollarSign,
-  LogOut,
-  Users,
-  RefreshCw,
-} from "lucide-react"
-
+import { Menu, X, BarChart3, FileText, DollarSign, LogOut, Users, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { OfflineAPI } from "@/lib/offline/offline-api"
 

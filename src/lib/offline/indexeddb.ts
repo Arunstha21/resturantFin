@@ -1,3 +1,8 @@
+/**
+ * IndexedDB wrapper for offline data storage
+ * Handles local caching, queued operations, and API response caching
+ */
+
 // Enhanced IndexedDB wrapper for offline storage
 export interface OfflineRecord {
   id: string

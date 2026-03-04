@@ -1,21 +1,16 @@
 import { toast } from "sonner"
 
+// Toast notification utilities - Wrapper around sonner for consistent messages
 export const showSuccessToast = (message: string) => {
-  toast.success(message, {
-    duration: 3000,
-  })
+  toast.success(message, { duration: 3000 })
 }
 
 export const showErrorToast = (message: string) => {
-  toast.error(message, {
-    duration: 4000,
-  })
+  toast.error(message, { duration: 4000 })
 }
 
 export const showInfoToast = (message: string) => {
-  toast.info(message, {
-    duration: 3000,
-  })
+  toast.info(message, { duration: 3000 })
 }
 
 export const showLoadingToast = (message: string) => {
@@ -24,19 +19,11 @@ export const showLoadingToast = (message: string) => {
 
 export const showPromiseToast = <T,>(
   promise: Promise<T>,
-  {
-    loading,
-    success,
-    error,
-  }: {
+  { loading, success, error }: {
     loading: string
     success: string | ((data: T) => string)
     error: string | ((error: any) => string)
   },
 ) => {
-  return toast.promise(promise, {
-    loading,
-    success,
-    error,
-  })
+  return toast.promise(promise, { loading, success, error })
 }

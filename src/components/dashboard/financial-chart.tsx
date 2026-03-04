@@ -1,24 +1,9 @@
 "use client"
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
-import {
-  Area,
-  AreaChart,
-  XAxis,
-  YAxis,
-  Legend,
-} from "recharts"
+// Financial Chart - Area chart showing income, expenses, and profit trends over time
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Area, AreaChart, XAxis, YAxis, Legend } from "recharts"
 import type { ChartData } from "@/types"
 
 interface FinancialChartProps {

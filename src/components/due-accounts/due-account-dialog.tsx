@@ -1,17 +1,11 @@
 "use client"
 
+// Due Account Dialog - Dialog for creating and editing due accounts
 import type React from "react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Edit } from "lucide-react"
 import type { DueAccount } from "@/types"
 import { DueAccountForm } from "./due-account-form"

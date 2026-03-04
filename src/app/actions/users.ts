@@ -1,5 +1,9 @@
 "use server"
 
+/**
+ * Users - Server actions for CRUD operations on users
+ */
+
 import { revalidatePath } from "next/cache"
 import { getServerSession } from "next-auth"
 import bcrypt from "bcryptjs"
@@ -9,23 +13,25 @@ import { userSchema, type UserInput } from "@/lib/validations"
 import { authOptions } from "@/lib/auth"
 import Organization from "@/models/Organization"
 
+/**
+ * User management actions (Admin only)
+ */
+
 export async function createUser(data: UserInput) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id || session.user.role !== "admin") {
     throw new Error("Unauthorized - Admin access required")
   }
+
   const superAdmin = session.user.superAdmin
   const validatedData = userSchema.parse(data)
-  
   await dbConnect()
 
   const organization = await Organization.findById(validatedData.organization)
-  // Check if user already exists
+
+  // Check if user exists
   const existingUser = await User.findOne({ email: validatedData.email })
-  if (existingUser) {
-    throw new Error("User with this email already exists")
-  }
+  if (existingUser) throw new Error("User with this email already exists")
 
   // Hash password
   const hashedPassword = await bcrypt.hash(validatedData.password!, 12)
@@ -35,6 +41,7 @@ export async function createUser(data: UserInput) {
     password: hashedPassword,
     organization: superAdmin ? validatedData.organization : session.user.organization,
   })
+
   organization.users.push(user._id)
   await organization.save()
 
@@ -45,19 +52,23 @@ export async function createUser(data: UserInput) {
 
 export async function updateUser(id: string, data: UserInput) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id || session.user.role !== "admin") {
     throw new Error("Unauthorized - Admin access required")
   }
+
   const superAdmin = session.user.superAdmin
-
   const validatedData = userSchema.parse(data)
-
   await dbConnect()
 
   const organization = await Organization.findById(validatedData.organization)
 
-  const updateData: {name: string; email: string; role: "admin" | "manager" | "staff"; password?: string, organization: string | undefined} = {
+  const updateData: {
+    name: string
+    email: string
+    role: "admin" | "manager" | "staff"
+    password?: string
+    organization: string | undefined
+  } = {
     name: validatedData.name,
     email: validatedData.email,
     role: validatedData.role,
@@ -73,9 +84,7 @@ export async function updateUser(id: string, data: UserInput) {
   organization.users.push(user?._id)
   await organization.save()
 
-  if (!user) {
-    throw new Error("User not found")
-  }
+  if (!user) throw new Error("User not found")
 
   revalidatePath("/users")
 
@@ -84,7 +93,6 @@ export async function updateUser(id: string, data: UserInput) {
 
 export async function deleteUser(id: string) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id || session.user.role !== "admin") {
     throw new Error("Unauthorized - Admin access required")
   }
@@ -92,15 +100,10 @@ export async function deleteUser(id: string) {
   await dbConnect()
 
   // Prevent deleting yourself
-  if (session.user.id === id) {
-    throw new Error("Cannot delete your own account")
-  }
+  if (session.user.id === id) throw new Error("Cannot delete your own account")
 
   const user = await User.findByIdAndDelete(id)
-
-  if (!user) {
-    throw new Error("User not found")
-  }
+  if (!user) throw new Error("User not found")
 
   revalidatePath("/users")
 

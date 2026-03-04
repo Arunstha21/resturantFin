@@ -3,6 +3,9 @@
 import { useMemo } from "react"
 import type { IncomeRecord } from "@/types"
 
+// Grouped Income Records Hook
+// Groups due account orders together and sorts by payment status (pending first)
+
 // Enhanced type for grouped records
 export interface GroupedIncomeRecord extends IncomeRecord {
   isGroup?: boolean

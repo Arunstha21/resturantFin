@@ -1,8 +1,19 @@
+// Authentication configuration and utilities for NextAuth.js
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import dbConnect from "./db"
 import { DefaultSession, DefaultUser } from "next-auth"
+import { getServerSession } from "next-auth"
+
+// Role constants
+export const ALLOWED_ROLES = {
+  ADMIN: "admin",
+  MANAGER: "manager",
+  STAFF: "staff",
+} as const
+
+export const MANAGEMENT_ROLES = [ALLOWED_ROLES.ADMIN, ALLOWED_ROLES.MANAGER] as const
 
 declare module "next-auth" {
   interface Session {
@@ -37,7 +48,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await getUserData(credentials.email)
-        
+
         if (!user) {
           return null
         }
@@ -94,17 +105,52 @@ export const authOptions: NextAuthOptions = {
   },
 }
 
+/**
+ * Requires authentication and optionally validates role permissions
+ * @param requiredRoles - Optional array of allowed roles
+ * @returns The session object
+ * @throws Error if unauthorized or insufficient permissions
+ */
+export async function requireAuth(requiredRoles?: readonly string[]) {
+  const session = await getServerSession(authOptions)
 
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized")
+  }
+
+  if (requiredRoles && requiredRoles.length > 0) {
+    const userRole = session.user.role?.toLowerCase()
+    if (!userRole || !requiredRoles.includes(userRole)) {
+      throw new Error("Insufficient permissions")
+    }
+  }
+
+  return session
+}
+
+/** Checks if a role has management permissions (admin or manager) */
+export function hasManagementRole(role?: string): boolean {
+  if (!role) return false
+  return MANAGEMENT_ROLES.includes(role.toLowerCase() as typeof MANAGEMENT_ROLES[number])
+}
+
+/** Fetches user data with organization (parallel queries for ~100ms savings) */
 async function getUserData(email: string) {
   await dbConnect()
-  const User = (await import("@/models/User")).default;
-  const user = await User.findOne({ email })
 
-  const Organization = (await import("@/models/Organization")).default;
-  const organizationData = await Organization.findById(user?.organization)
+  const [Organization, user] = await Promise.all([
+    import("@/models/Organization").then(m => m.default),
+    (async () => {
+      const UserModel = (await import("@/models/User")).default
+      return await UserModel.findOne({ email })
+    })(),
+  ])
 
-  if (user && organizationData) {
-    user.organization = organizationData
+  if (user?.organization) {
+    const organizationData = await Organization.findById(user.organization)
+    if (organizationData) {
+      user.organization = organizationData
+    }
   }
 
   return user

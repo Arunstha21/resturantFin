@@ -4,6 +4,9 @@ import { useCallback, useEffect } from "react"
 import type { UseFormReturn } from "react-hook-form"
 import type { IncomeRecordInput } from "@/lib/validations"
 
+// Income Form Calculations Hook
+// Handles subtotal, discount, tip, total, and split payment calculations
+
 interface UseIncomeFormCalculationsProps {
   form: UseFormReturn<IncomeRecordInput>
   showDiscount: boolean
@@ -11,12 +14,7 @@ interface UseIncomeFormCalculationsProps {
   isSplitPayment: boolean
 }
 
-export function useIncomeFormCalculations({
-  form,
-  showDiscount,
-  showTip,
-  isSplitPayment,
-}: UseIncomeFormCalculationsProps) {
+export function useIncomeFormCalculations({ form, showDiscount, showTip, isSplitPayment }: UseIncomeFormCalculationsProps) {
   const calculateTotals = useCallback(() => {
     const currentItems = form.getValues("items")
     if (!currentItems || currentItems.length === 0) return

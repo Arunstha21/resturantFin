@@ -1,5 +1,6 @@
 "use client"
 
+// Income Record Form - Form for adding/editing income records with dynamic item rows
 import { useState, useCallback, useMemo, useEffect } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -20,6 +21,7 @@ import { OfflineAPI } from "@/lib/offline/offline-api"
 import { formatCurrency } from "@/lib/utils"
 import { useOffline } from "../../hooks/use-offline"
 import type { IncomeRecord } from "@/types"
+import { PAYMENT_METHOD, PAYMENT_STATUS } from "@/lib/constants"
 
 interface IncomeRecordFormProps {
   record?: IncomeRecord
@@ -38,42 +40,68 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const [formState, setFormState] = useState<FormState>({
     showExtras: Boolean(record?.discount || record?.tip),
     showNotes: Boolean(record?.notes),
-    isSplitPayment: record?.paymentMethod === "split",
+    isSplitPayment: record?.paymentMethod === PAYMENT_METHOD.SPLIT,
   })
 
   const [dueAccounts, setDueAccounts] = useState<any[]>([])
   const [selectedDueAccount, setSelectedDueAccount] = useState<string>("")
   const [editingItems, setEditingItems] = useState<Set<number>>(new Set()) // Track which items are being edited
-  const [menuItems, setMenuItems] = useState<{
+
+  // Proper types for menu items state
+  interface MenuItemInfo {
+    _id: string
+    name: string
+    price: number
+    category: string
+    actualCategory: string
+  }
+
+  interface MenuItemsState {
     category: string[]
-    items: Record<string, { _id: string; name: string; price: number; category: string; actualCategory: string }[]>
-  }>({ category: [], items: {} })
+    items: Record<string, MenuItemInfo[]>
+  }
+
+  const [menuItems, setMenuItems] = useState<MenuItemsState>({ category: [], items: {} })
 
   const fetchMenuItems = async () => {
     try {
       const data = await OfflineAPI.getMenuItems()
 
-      const categories = Array.from(new Set(data.map((item: any) => item.incomeCategory || item.category)))
-      categories.sort((a, b) => {
+      // EFFICIENCY FIX: Single-pass grouping O(n) instead of O(n²)
+      const itemMap: Record<string, MenuItemInfo[]> = {}
+
+      // Group items by category in a single pass
+      for (const item of data as any[]) {
+        const category = item.incomeCategory || item.category
+        if (!itemMap[category]) {
+          itemMap[category] = []
+        }
+        itemMap[category].push({
+          _id: item._id,
+          name: item.name,
+          price: Number(item.price) || 0,
+          category: category,
+          actualCategory: item.category,
+        })
+      }
+
+      // Get categories and sort with "Popular" first
+      const categories = Object.keys(itemMap).sort((a, b) => {
         if (a === "Popular") return -1
         if (b === "Popular") return 1
         return 0
       })
-      const itemMap: Record<string, { _id: string; name: string; price: number; category: string; actualCategory: string}[]> = {} 
 
-      categories.forEach((category) => {
-        itemMap[category] = data
-          .filter((item: any) => (item.incomeCategory || item.category) === category)
-          .sort((a: any, b: any) => (b.totalSold || 0) - (a.totalSold || 0)) // DESCENDING
-          .map((item: any) => ({
-            _id: item._id,
-            name: item.name,
-            price: Number(item.price) || 0,
-            category: category,
-            actualCategory: item.category,
-          }))
-      })
-      setMenuItems({ category: categories, items: itemMap });
+      // Sort items within each category by totalSold (descending)
+      for (const category of categories) {
+        itemMap[category].sort((a, b) => {
+          const aSold = (data as any[]).find(d => d._id === a._id)?.totalSold || 0
+          const bSold = (data as any[]).find(d => d._id === b._id)?.totalSold || 0
+          return bSold - aSold
+        })
+      }
+
+      setMenuItems({ category: categories, items: itemMap })
     } catch (error) {
       console.error("Error fetching menu items:", error)
       toast.error("Failed to fetch menu items")
@@ -90,8 +118,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       subtotal: record?.subtotal || 0,
       discount: record?.discount || 0,
       tip: record?.tip || 0,
-      paymentMethod: (record?.paymentMethod as any) || "cash",
-      paymentStatus: (record?.paymentStatus as any) || "pending",
+      paymentMethod: (record?.paymentMethod as any) || PAYMENT_METHOD.CASH,
+      paymentStatus: (record?.paymentStatus as any) || PAYMENT_STATUS.PENDING,
       cashAmount: record?.cashAmount || 0,
       digitalAmount: record?.digitalAmount || 0,
       date: record?.date ? new Date(record.date) : new Date(),
@@ -165,12 +193,12 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
     // Handle split payment
     if (formState.isSplitPayment) {
-      if (form.getValues("paymentMethod") !== "split") {
-        form.setValue("paymentMethod", "split", { shouldValidate: false, shouldDirty: false })
+      if (form.getValues("paymentMethod") !== PAYMENT_METHOD.SPLIT) {
+        form.setValue("paymentMethod", PAYMENT_METHOD.SPLIT, { shouldValidate: false, shouldDirty: false })
       }
       const cashAmount = Number(form.getValues("cashAmount")) || 0
       const digitalAmount = Number(form.getValues("digitalAmount")) || 0
-      const newStatus = cashAmount + digitalAmount >= total ? "completed" : "pending"
+      const newStatus = cashAmount + digitalAmount >= total ? PAYMENT_STATUS.COMPLETED : PAYMENT_STATUS.PENDING
       if (form.getValues("paymentStatus") !== newStatus) {
         form.setValue("paymentStatus", newStatus, { shouldValidate: false, shouldDirty: false })
       }
@@ -236,7 +264,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       if (record.notes && record.notes.trim() !== "") {
         setFormState((prev) => ({ ...prev, showNotes: true }))
       }
-      if (record.paymentMethod === "split") {
+      if (record.paymentMethod === PAYMENT_METHOD.SPLIT) {
         setFormState((prev) => ({ ...prev, isSplitPayment: true }))
       }
       if (record.isDueAccount && record.dueAccountId && dueAccounts.length > 0) {
@@ -294,7 +322,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       const formData = {
         ...data,
         totalAmount: Number(data.totalAmount) || 0,
-        paymentMethod: formState.isSplitPayment ? "split" : data.paymentMethod,
+        paymentMethod: formState.isSplitPayment ? PAYMENT_METHOD.SPLIT : data.paymentMethod,
         cashAmount: formState.isSplitPayment ? Number(data.cashAmount) || 0 : 0,
         digitalAmount: formState.isSplitPayment ? Number(data.digitalAmount) || 0 : 0,
       }
@@ -801,14 +829,14 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
               variant={
                 form.watch("paymentStatus") === "completed"
                   ? "default"
-                  : form.watch("paymentStatus") === "pending"
+                  : form.watch("paymentStatus") === PAYMENT_STATUS.PENDING
                     ? "destructive"
                     : "secondary"
               }
             >
-              {form.watch("paymentStatus") === "completed"
+              {form.watch("paymentStatus") === PAYMENT_STATUS.COMPLETED
                 ? "Payment Complete"
-                : form.watch("paymentStatus") === "pending"
+                : form.watch("paymentStatus") === PAYMENT_STATUS.PENDING
                   ? "Payment Pending"
                   : "Payment Failed"}
             </Badge>
@@ -845,8 +873,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="digital">Digital</SelectItem>
+                          <SelectItem value={PAYMENT_METHOD.CASH}>Cash</SelectItem>
+                          <SelectItem value={PAYMENT_METHOD.DIGITAL}>Digital</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -866,8 +894,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value={PAYMENT_STATUS.PENDING}>Pending</SelectItem>
+                          <SelectItem value={PAYMENT_STATUS.COMPLETED}>Completed</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

@@ -1,16 +1,18 @@
+// Organization Model - Multi-tenant organizations with user associations
 import mongoose, { Schema, Document, models } from "mongoose";
 
+// Organization - Multi-tenant organizations
 export interface IOrg extends Document {
-  name: string;
-  shortName?: string;
-  users: mongoose.Types.ObjectId[];
-  address?: string;
-  phone?: string;
-  email?: string;
-  taxId?: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  name: string
+  shortName?: string
+  users: mongoose.Types.ObjectId[]
+  address?: string
+  phone?: string
+  email?: string
+  taxId?: string
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
 }
 
 const OrganizationSchema = new Schema<IOrg>({
@@ -22,6 +24,6 @@ const OrganizationSchema = new Schema<IOrg>({
   email: String,
   taxId: String,
   isActive: { type: Boolean, default: true },
-}, { timestamps: true });
+}, { timestamps: true })
 
-export default models.Organization || mongoose.model<IOrg>("Organization", OrganizationSchema);
+export default models.Organization || mongoose.model<IOrg>("Organization", OrganizationSchema)

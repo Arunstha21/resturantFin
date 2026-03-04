@@ -3,6 +3,13 @@ import dbConnect from "@/lib/db"
 import DueAccount from "@/models/DueAccount"
 import IncomeRecord from "@/models/IncomeRecord"
 
+/**
+ * GET /api/due-accounts/public/[id]
+ *
+ * Public endpoint for viewing due account details without authentication
+ * Used for sharing payment links with customers
+ */
+
 export async function GET(
   request: NextRequest, 
   { params }: { params: Promise<{ id: string }> }

@@ -4,6 +4,13 @@ import dbConnect from "@/lib/db"
 import User from "@/models/User"
 import { authOptions } from "@/lib/auth"
 
+/**
+ * GET /api/users
+ *
+ * Fetch users with pagination (Admin only)
+ *
+ * Query params: page, limit
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,7 +26,7 @@ export async function GET(request: NextRequest) {
     const limit = Number.parseInt(searchParams.get("limit") || "50")
     const skip = (page - 1) * limit
 
-    const users = await User.find({ organization: session.user.organization }, { password: 0 }) // Exclude password field
+    const users = await User.find({ organization: session.user.organization }, { password: 0 })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -29,12 +36,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       users,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     })
   } catch (error) {
     console.error("Error fetching users:", error)

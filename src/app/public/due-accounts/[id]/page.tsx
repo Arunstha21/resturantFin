@@ -1,3 +1,6 @@
+/**
+ * Public Due Account Page - Public view for customer due account statements
+ */
 "use client"
 
 import { useState, useEffect } from "react"

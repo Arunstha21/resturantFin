@@ -1,3 +1,5 @@
+// Application type definitions
+// Income/sales record
 export interface IncomeRecord {
   _id: string
   items: Array<{
@@ -27,6 +29,7 @@ export interface IncomeRecord {
   _timestamp?: number
 }
 
+// Expense record
 export interface ExpenseRecord {
   _id: string
   amount: number
@@ -44,6 +47,7 @@ export interface ExpenseRecord {
   _timestamp?: number
 }
 
+// System user
 export interface User {
   _id: string
   name: string
@@ -57,6 +61,7 @@ export interface User {
   _timestamp?: number
 }
 
+// Dashboard statistics
 export interface DashboardStats {
   totalIncome: number
   totalExpenses: number
@@ -68,6 +73,7 @@ export interface DashboardStats {
   _fromCache?: boolean
 }
 
+// Chart data point
 export interface ChartData {
   date: string
   income: number
@@ -76,6 +82,7 @@ export interface ChartData {
   orders: number
 }
 
+// Due account (customer credit)
 export interface DueAccount {
   _id: string
   customerName: string
@@ -94,12 +101,14 @@ export interface DueAccount {
   _timestamp?: number
 }
 
+// Payment operation result
 export interface PaymentResult {
   success: boolean
   paidAmount: number
   remainingPayment: number
 }
 
+// Due account with orders
 export interface DueAccountSummary {
   _id: string
   customerName: string
@@ -111,6 +120,7 @@ export interface DueAccountSummary {
   orders: IncomeRecord[]
 }
 
+// Menu item
 export interface MenuItem {
   _id: string
   name: string
@@ -127,6 +137,19 @@ export interface MenuItem {
   _timestamp?: number
 }
 
+// Menu item with sales data (incomeCategory is "Popular" for top items)
+export interface MenuItemWithSales {
+  _id: string
+  name: string
+  category: string
+  incomeCategory: string
+  price: number
+  image: string
+  isAvailable: boolean
+  totalSold: number
+}
+
+// Organization (tenant)
 export interface Organization {
   _id: string
   name: string
@@ -141,6 +164,7 @@ export interface Organization {
   updatedAt: Date
 }
 
+// Organization with populated users
 export interface OrganizationWithUsers {
   _id: string
   name: string

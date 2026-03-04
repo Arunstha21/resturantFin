@@ -1,3 +1,6 @@
+/**
+ * Due Accounts Page - Customer due accounts management with payment tracking
+ */
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
