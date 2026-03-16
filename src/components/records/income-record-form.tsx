@@ -493,12 +493,14 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
             </div>
             <div className="border rounded-lg p-3">
               <div className="max-h-48 overflow-y-auto space-y-4">
-              {Object.entries(filteredMenuItems.items).length === 0 ? (
+              {filteredMenuItems.category.length === 0 ? (
                 <div className="text-center text-muted-foreground text-sm py-4">
                   No menu items found matching &quot;{searchQuery}&quot;
                 </div>
               ) : (
-                Object.entries(filteredMenuItems.items).map(([category, items]) => (
+                filteredMenuItems.category.map((category) => {
+                  const items = filteredMenuItems.items[category];
+                  return (
                 <div key={category} className="space-y-2">
                   <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
                   {category}
@@ -543,7 +545,8 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
                   })}
                   </div>
                 </div>
-                ))
+                );
+                })
               )}
               </div>
             </div>
