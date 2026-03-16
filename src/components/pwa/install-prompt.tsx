@@ -48,7 +48,7 @@ export function InstallPrompt() {
   if (!showPrompt || !deferredPrompt) return null
 
   return (
-    <Card className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm">
+    <Card className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm md:left-auto md:right-4">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Install App</CardTitle>

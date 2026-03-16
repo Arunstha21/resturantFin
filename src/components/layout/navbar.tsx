@@ -83,8 +83,8 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
                   }`}
                 >
                   <item.icon className="h-4 w-4 mr-1" />
-                  <span className="hidden lg:inline xl:hidden">{item.shortName}</span>
-                  <span className="hidden xl:inline">{item.name}</span>
+                  <span className="hidden md:inline lg:hidden">{item.shortName}</span>
+                  <span className="hidden lg:inline">{item.name}</span>
                 </Link>
               ))}
             </div>
