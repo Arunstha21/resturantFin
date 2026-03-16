@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DateRangeSelector, DateRangeFilter } from "@/components/date-range-selector"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -103,7 +104,7 @@ export default function SalesAnalytics() {
   const { theme } = useTheme()
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState("month")
+  const [dateFilter, setDateFilter] = useState<DateRangeFilter>("month")
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [itemHistory, setItemHistory] = useState<any[]>([])
   const [priceHistory, setPriceHistory] = useState<any[]>([])
@@ -217,7 +218,7 @@ export default function SalesAnalytics() {
     fetchSalesData(dateFilter)
   }, [dateFilter])
 
-  const handleDateFilterChange = (value: string) => {
+  const handleDateFilterChange = (value: DateRangeFilter) => {
     setDateFilter(value)
   }
 
@@ -383,20 +384,14 @@ export default function SalesAnalytics() {
                 </div>
               )}
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Select value={dateFilter} onValueChange={handleDateFilterChange}>
-                <SelectTrigger className="w-[180px]">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">Last 7 Days</SelectItem>
-                  <SelectItem value="month">Last 30 Days</SelectItem>
-                  <SelectItem value="year">Last Year</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+              <DateRangeSelector
+                value={dateFilter}
+                onChange={handleDateFilterChange}
+                showCustomInputs={false}
+                includeAllTimeOption={true}
+                label=""
+              />
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
                 Export

@@ -7,12 +7,12 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { DateRangeSelector, DateRangeFilter, getDateRangeLabel } from "@/components/date-range-selector"
 import { formatCurrency, exportToCSV, getDateRange } from "@/lib/utils"
 import { Download, Filter, Receipt, CreditCard, Banknote, Smartphone, Calendar, AlertTriangle } from "lucide-react"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
@@ -23,7 +23,7 @@ export default function ReportsPage() {
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([])
   const [filteredIncomeRecords, setFilteredIncomeRecords] = useState<IncomeRecord[]>([])
   const [filteredExpenseRecords, setFilteredExpenseRecords] = useState<ExpenseRecord[]>([])
-  const [dateFilter, setDateFilter] = useState("today")
+  const [dateFilter, setDateFilter] = useState<DateRangeFilter>("today")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
@@ -229,30 +229,8 @@ export default function ReportsPage() {
     }
   }
 
-    const getDateRangeText = () => {
-    const { start, end } = getDateRange(dateFilter)
-    const formatDate = (date: Date) => date.toLocaleDateString()
-
-    switch (dateFilter) {
-      case "today":
-        return "Today"
-      case "yesterday":
-        return "Yesterday"
-      case "week":
-        return "This Week"
-      case "lastWeek":
-        return "Last Week"
-      case "month":
-        return "This Month"
-      case "lastMonth":
-        return "Last Month"
-      case "year":
-        return "This Year"
-      case "custom":
-        return `${formatDate(start)} - ${formatDate(end)}`
-      default:
-        return "Today"
-    }
+  const getDateRangeText = () => {
+    return getDateRangeLabel(dateFilter, startDate, endDate)
   }
 
   const summary = calculateSummary()
@@ -445,38 +423,16 @@ export default function ReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>Date Range</Label>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="yesterday">Yesterday</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="lastWeek">Last Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                    <SelectItem value="lastMonth">Last Month</SelectItem>
-                    <SelectItem value="year">This Year</SelectItem>
-                    <SelectItem value="custom">Custom Range</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {dateFilter === "custom" && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>End Date</Label>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                  </div>
-                </>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DateRangeSelector
+                value={dateFilter}
+                onChange={setDateFilter}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                includeAllTimeOption={true}
+              />
 
               <div className="space-y-2">
                 <Label>Expense Category</Label>

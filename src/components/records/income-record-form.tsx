@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { toast } from "sonner"
-import { Plus, Trash2, ChevronDown, Edit3, Check, X } from "lucide-react"
+import { Plus, Trash2, ChevronDown, Edit3, Check, X, Search } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { incomeRecordSchema, type IncomeRecordInput } from "@/lib/validations"
@@ -62,6 +62,7 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   }
 
   const [menuItems, setMenuItems] = useState<MenuItemsState>({ category: [], items: {} })
+  const [searchQuery, setSearchQuery] = useState("")
 
   const fetchMenuItems = async () => {
     try {
@@ -85,11 +86,11 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
         })
       }
 
-      // Get categories and sort with "Popular" first
+      // Get categories and sort with "Popular" first, then alphabetically
       const categories = Object.keys(itemMap).sort((a, b) => {
         if (a === "Popular") return -1
         if (b === "Popular") return 1
-        return 0
+        return a.localeCompare(b)
       })
 
       // Sort items within each category by totalSold (descending)
@@ -107,6 +108,33 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
       toast.error("Failed to fetch menu items")
     }
   }
+
+  // Filter menu items based on search query
+  const filteredMenuItems = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return menuItems
+    }
+
+    const query = searchQuery.toLowerCase()
+    const filteredItems: Record<string, MenuItemInfo[]> = {}
+    const filteredCategories: string[] = []
+
+    for (const category of menuItems.category) {
+      const items = menuItems.items[category]
+      const matchingItems = items.filter((item) =>
+        item.name.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query) ||
+        item.actualCategory.toLowerCase().includes(query)
+      )
+
+      if (matchingItems.length > 0) {
+        filteredItems[category] = matchingItems
+        filteredCategories.push(category)
+      }
+    }
+
+    return { category: filteredCategories, items: filteredItems }
+  }, [menuItems, searchQuery])
 
   const { isOnline } = useOffline()
 
@@ -451,59 +479,79 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
 
           {/* All Menu Items - Scrollable Container */}
           <div className="space-y-2">
-            <Label>All Menu Items</Label>
+            <div className="flex items-center justify-between">
+              <Label>All Menu Items</Label>
+              <div className="relative w-64">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search menu items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+              </div>
+            </div>
             <div className="border rounded-lg p-3">
               <div className="max-h-48 overflow-y-auto space-y-4">
-              {Object.entries(menuItems.items).map(([category, items]) => (
-              <div key={category} className="space-y-2">
-                <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
-                {category}
-                </h4>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                {items.map((item) => {
-                  const existingItem = watchedItems?.find(
-                    (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
-                  );
-                  const currentQuantity = existingItem?.quantity || 0;
-
-                  return (
-                    <Button
-                      key={item._id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        addMenuItem(item);
-                      }}
-                      onTouchStart={(e) => e.preventDefault()}
-                      className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200 touch-manipulation"
-                      tabIndex={-1}
-                    >
-                      <div className="w-full pointer-events-none">
-                        <div className="font-medium text-xs truncate">{item.name}</div>
-                        <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
-                        {currentQuantity > 0 && (
-                          <Badge
-                            variant="default"
-                            className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
-                          >
-                            {currentQuantity}
-                          </Badge>
-                        )}
-                      </div>
-                    </Button>
-                  );
-                })}
+              {Object.entries(filteredMenuItems.items).length === 0 ? (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  No menu items found matching &quot;{searchQuery}&quot;
                 </div>
-              </div>
-              ))}
+              ) : (
+                Object.entries(filteredMenuItems.items).map(([category, items]) => (
+                <div key={category} className="space-y-2">
+                  <h4 className="font-semibold text-sm border-b border-gray-200 pb-1 sticky top-0 bg-neutral-950">
+                  {category}
+                  </h4>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {items.map((item) => {
+                    const existingItem = watchedItems?.find(
+                      (watchedItem) => watchedItem.name.toLowerCase() === item.name.toLowerCase(),
+                    );
+                    const currentQuantity = existingItem?.quantity || 0;
+
+                    return (
+                      <Button
+                        key={item._id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addMenuItem(item);
+                        }}
+                        onTouchStart={(e) => e.preventDefault()}
+                        className="justify-start text-left h-auto p-2 relative bg-white hover:bg-blue-50 border-gray-200 touch-manipulation"
+                        tabIndex={-1}
+                      >
+                        <div className="w-full pointer-events-none">
+                          <div className="font-medium text-xs truncate">{item.name}</div>
+                          <div className="text-xs text-muted-foreground">{formatCurrency(item.price)}</div>
+                          {currentQuantity > 0 && (
+                            <Badge
+                              variant="default"
+                              className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center bg-blue-600"
+                            >
+                              {currentQuantity}
+                            </Badge>
+                          )}
+                        </div>
+                      </Button>
+                    );
+                  })}
+                  </div>
+                </div>
+                ))
+              )}
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Popular items are shown first, followed by all other menu items by category.
+              {searchQuery
+                ? `Showing ${Object.entries(filteredMenuItems.items).length} categor${Object.entries(filteredMenuItems.items).length === 1 ? 'y' : 'ies'} matching "${searchQuery}"`
+                : "Popular items are shown first, followed by all other menu items by category."
+              }
             </p>
           </div>
 

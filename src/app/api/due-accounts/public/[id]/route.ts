@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import dbConnect from "@/lib/db"
 import DueAccount from "@/models/DueAccount"
 import IncomeRecord from "@/models/IncomeRecord"
+// Import to ensure Organization schema is registered for populate
+import "@/models/Organization"
 
 /**
  * GET /api/due-accounts/public/[id]

@@ -8,7 +8,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DateRangeSelector, DateRangeFilter, getDateRangeLabel } from "@/components/date-range-selector"
 import { formatCurrency } from "@/lib/utils"
 import { TrendingUp, TrendingDown, DollarSign, Receipt, CreditCard, RefreshCw, WifiOff, Database } from "lucide-react"
 import type { ChartData, DashboardStats } from "@/types"
@@ -18,6 +18,24 @@ import { OfflineAPI } from "@/lib/offline/offline-api"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getChartData } from "../actions/dashboard"
 import { FinancialChart } from "@/components/dashboard/financial-chart"
+
+// Helper function to calculate orders per day based on date filter
+function getOrdersPerDay(filter: DateRangeFilter, totalOrders: number): number {
+  const daysMap: Record<DateRangeFilter, number> = {
+    today: 1,
+    yesterday: 1,
+    week: 7,
+    lastWeek: 7,
+    month: 30,
+    lastMonth: 30,
+    year: 365,
+    lastYear: 365,
+    all: 365, // Default to 365 for "all time"
+    custom: 30, // Default to 30 for custom
+  }
+  const days = daysMap[filter] || 30
+  return Math.round(totalOrders / days)
+}
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
@@ -30,7 +48,7 @@ export default function DashboardPage() {
     pendingPaymentsCount: 0,
   })
   const [isLoading, setIsLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState("month")
+  const [dateFilter, setDateFilter] = useState<DateRangeFilter>("month")
   const [isFromCache, setIsFromCache] = useState(false)
 
   const { isOnline, isSyncing, pendingOperations } = useOffline()
@@ -133,19 +151,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="lastWeek">Last Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="lastMonth">Last Month</SelectItem>
-                <SelectItem value="year">This Year</SelectItem>
-              </SelectContent>
-            </Select>
+            <DateRangeSelector
+              value={dateFilter}
+              onChange={setDateFilter}
+              showCustomInputs={false}
+              includeAllTimeOption={true}
+              label=""
+            />
 
             <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -274,11 +286,7 @@ export default function DashboardPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Orders per Day</span>
                     <span className="font-medium">
-                      {dateFilter === "today"
-                        ? stats.ordersCount
-                        : dateFilter === "week"
-                          ? Math.round(stats.ordersCount / 7)
-                          : Math.round(stats.ordersCount / 30)}
+                      {getOrdersPerDay(dateFilter, stats.ordersCount)}
                     </span>
                   </div>
                 </CardContent>
@@ -306,7 +314,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <span>
-                      Data for: {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : "This Month"}
+                      Data for: {getDateRangeLabel(dateFilter)}
                     </span>
                     {isFromCache && (
                       <Badge variant="outline" className="text-xs">

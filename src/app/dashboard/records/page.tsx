@@ -49,6 +49,23 @@ export default function RecordsPage() {
     await fetchRecords()
   }, [fetchRecords])
 
+  const handleFetchAll = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [incomeData, expenseData] = await Promise.all([
+        OfflineAPI.fetchAllIncomeRecords(),
+        OfflineAPI.fetchAllExpenseRecords(),
+      ])
+      setIncomeRecords(incomeData || [])
+      setExpenseRecords(expenseData || [])
+    } catch (error) {
+      toast.error("Failed to fetch all records")
+      console.error("Error fetching all records:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   const [hydrated, setHydrated] = useState(false)
 useEffect(() => setHydrated(true), [])
 
@@ -102,6 +119,7 @@ if (!hydrated) {
               records={incomeRecords}
               isLoading={isLoading}
               onRefresh={fetchRecords}
+              onFetchAll={handleFetchAll}
               onFormSuccess={handleFormSuccess}
               isOnline={isOnline}
             />
@@ -112,6 +130,7 @@ if (!hydrated) {
               records={expenseRecords}
               isLoading={isLoading}
               onRefresh={fetchRecords}
+              onFetchAll={handleFetchAll}
               onFormSuccess={handleFormSuccess}
               isOnline={isOnline}
             />

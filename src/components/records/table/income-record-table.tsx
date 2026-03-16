@@ -23,11 +23,12 @@ interface IncomeRecordsTableProps {
   records: IncomeRecord[]
   isLoading: boolean
   onRefresh: () => Promise<void>
+  onFetchAll: () => Promise<void>
   onFormSuccess: () => Promise<void>
   isOnline: boolean
 }
 
-export function IncomeRecordsTable({ records, isLoading, onRefresh, onFormSuccess, isOnline }: IncomeRecordsTableProps) {
+export function IncomeRecordsTable({ records, isLoading, onRefresh, onFetchAll, onFormSuccess, isOnline }: IncomeRecordsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState("")
@@ -300,7 +301,19 @@ export function IncomeRecordsTable({ records, isLoading, onRefresh, onFormSucces
       <div className="hidden md:block">
         <Card>
           <CardHeader>
-            <CardTitle>Orders & Income Records</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Orders & Income Records</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onFetchAll}
+                disabled={isLoading}
+                className="bg-transparent"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Fetch all
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (

@@ -7,12 +7,10 @@
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, Download, TrendingUp, TrendingDown, DollarSign, Receipt, Clock } from "lucide-react"
+import { DateRangeSelector, DateRangeFilter, getDateRangeLabel as getDateRangeLabelText } from "@/components/date-range-selector"
+import { Download, TrendingUp, TrendingDown, DollarSign, Receipt, Clock } from "lucide-react"
 import { formatCurrency, getDateRange } from "@/lib/utils"
 import { useOffline } from "@/hooks/use-offline"
 import { toast } from "sonner"
@@ -51,13 +49,12 @@ const EXPENSE_CATEGORIES = [
 
 export default function ProfitLossPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [dateRange, setDateRange] = useState("thisMonth")
+  const [dateRange, setDateRange] = useState<DateRangeFilter>("month")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [profitLossData, setProfitLossData] = useState<ProfitLossData | null>(null)
   const [incomeRecords, setIncomeRecords] = useState<IncomeRecord[]>([])
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([])
-  const [completedIncomeRecords, setCompletedIncomeRecords] = useState<IncomeRecord[]>([])
 
   const { isOnline } = useOffline()
 
@@ -120,7 +117,6 @@ export default function ProfitLossPage() {
 
     // Calculate revenue - ONLY include completed payments
     const completedIncomeRecords = filteredIncome.filter((record) => record.paymentStatus === "completed")
-    setCompletedIncomeRecords(completedIncomeRecords)
     const totalRevenue = completedIncomeRecords.reduce((sum, record) => sum + (record.totalAmount || 0), 0)
 
     const cashRevenue = completedIncomeRecords.reduce((sum, record) => {
@@ -248,7 +244,7 @@ export default function ProfitLossPage() {
         breakdown: pendingBreakdown,
       },
     }
-  }, [incomeRecords, expenseRecords, getDateRange])
+  }, [incomeRecords, expenseRecords, dateRange, startDate, endDate])
 
   useEffect(() => {
     setProfitLossData(calculatedData)
@@ -260,29 +256,7 @@ export default function ProfitLossPage() {
   }
 
   const getDateRangeLabel = () => {
-    const { start, end } = getDateRange(dateRange)
-    const formatDate = (date: Date) => date.toLocaleDateString()
-
-    switch (dateRange) {
-      case "today":
-        return "Today"
-      case "yesterday":
-        return "Yesterday"
-      case "week":
-        return "This Week"
-      case "lastWeek":
-        return "Last Week"
-      case "month":
-        return "This Month"
-      case "lastMonth":
-        return "Last Month"
-      case "year":
-        return "This Year"
-      case "custom":
-        return `${formatDate(start)} - ${formatDate(end)}`
-      default:
-        return "Today"
-    }
+    return getDateRangeLabelText(dateRange, startDate, endDate)
   }
 
   if (isLoading) {
@@ -328,43 +302,21 @@ export default function ProfitLossPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
+            <Clock className="h-5 w-5" />
             Date Range
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <Label>Period</Label>
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="yesterday">Yesterday</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="lastWeek">Last Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="lastMonth">Last Month</SelectItem>
-                  <SelectItem value="year">This Year</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {dateRange === "custom" && (
-              <>
-                <div>
-                  <Label>Start Date</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-                <div>
-                  <Label>End Date</Label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                </div>
-              </>
-            )}
-          </div>
+          <DateRangeSelector
+            value={dateRange}
+            onChange={setDateRange}
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            label="Period"
+            includeAllTimeOption={true}
+          />
         </CardContent>
       </Card>
 
@@ -529,7 +481,9 @@ export default function ProfitLossPage() {
                     <div className="text-xs text-muted-foreground">Total Items Sold</div>
                   </div>
                   <div className="text-center p-3 border rounded-lg">
-                    <div className="text-lg font-bold text-primary">{completedIncomeRecords.length}</div>
+                    <div className="text-lg font-bold text-primary">
+                      {profitLossData.revenue.breakdown.reduce((sum, item) => (item.orders || 0), 0)}
+                    </div>
                     <div className="text-xs text-muted-foreground">Completed Orders</div>
                   </div>
                 </div>

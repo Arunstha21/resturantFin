@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import dbConnect from "@/lib/db"
 import IncomeRecord from "@/models/IncomeRecord"
 import { getServerSession } from "next-auth"
+import { getDateRange } from "@/lib/utils"
 
 /**
  * Sales Analytics - Server actions for aggregating sales data
@@ -41,30 +42,8 @@ export async function getSalesAnalytics(dateFilter = "month") {
       }
     }
 
-    // Step 2: Calculate date range for filtering
-    const now = new Date()
-    let startDate: Date
-
-    switch (dateFilter) {
-      case "today":
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        break
-      case "week":
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        break
-      case "month":
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        break
-      case "year":
-        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-        break
-      case "all":
-        // Special case: include all records regardless of date
-        startDate = new Date("2020-01-01") // Very old date to include everything
-        break
-      default:
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    }
+    // Step 2: Use the getDateRange utility for consistent date filtering
+    const { start, end } = getDateRange(dateFilter)
 
     // Step 3: Analyze all records first to understand the data
     const analysisResults: {
@@ -103,7 +82,7 @@ export async function getSalesAnalytics(dateFilter = "month") {
       }
 
       // Check individual filter criteria
-      const isInDateRange = dateFilter === "all" || (recordDate >= startDate && recordDate <= now)
+      const isInDateRange = recordDate >= start && recordDate <= end
       const hasValidPayment = ["completed", "pending"].includes(record.paymentStatus)
       const hasItems = record.items && Array.isArray(record.items) && record.items.length > 0
       const hasItemsWithNames = hasItems && record.items.some((item: any) => item.name && String(item.name).trim() !== "")
@@ -117,9 +96,9 @@ export async function getSalesAnalytics(dateFilter = "month") {
 
     // Step 4: Filter records with more flexible criteria
     const filteredRecords = allIncomeRecords.filter((record) => {
-      // Check date (skip if "all" filter)
+      // Check date
       const recordDate = new Date(record.date)
-      const isInDateRange = dateFilter === "all" || (recordDate >= startDate && recordDate <= now)
+      const isInDateRange = recordDate >= start && recordDate <= end
 
       // Check payment status (be more flexible)
       const validPaymentStatus = ["paid", "pending", "completed"].includes(record.paymentStatus)
@@ -135,11 +114,11 @@ export async function getSalesAnalytics(dateFilter = "month") {
     })
 
     // If we still have very few records, let's be even more flexible
-    if (filteredRecords.length < 10 && dateFilter !== "all") {
+    if (filteredRecords.length < 10) {
 
       const moreFlexibleRecords = allIncomeRecords.filter((record) => {
         const recordDate = new Date(record.date)
-        const isInDateRange = dateFilter === "all" || (recordDate >= startDate && recordDate <= now)
+        const isInDateRange = recordDate >= start && recordDate <= end
 
         // Accept any payment status except explicitly rejected ones
         const validPaymentStatus = !["cancelled", "refunded", "failed"].includes(record.paymentStatus)
@@ -304,8 +283,8 @@ export async function getSalesAnalytics(dateFilter = "month") {
         dailySales,
         overallStats,
         dateRange: {
-          startDate: startDate.toISOString(),
-          endDate: now.toISOString(),
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
           filter: dateFilter,
         },
         debug: {

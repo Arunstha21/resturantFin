@@ -5,6 +5,7 @@
 import { syncManager } from "./sync-manager"
 import type { IncomeRecord, ExpenseRecord } from "@/types"
 import { offlineDB } from "./indexeddb"
+import { getDateRange } from "@/lib/utils"
 
 // Import server actions
 import { createDueAccount, deleteDueAccount, updateDueAccount } from "@/app/actions/due-accounts"
@@ -47,6 +48,27 @@ export class OfflineAPI {
     } catch (error) {
       // Silent fail for background fetch
       console.error("Background fetch failed for income records:", error)
+    }
+  }
+
+  // Fetch all records from server - waits for response and returns all records
+  static async fetchAllIncomeRecords(): Promise<IncomeRecord[]> {
+    try {
+      // Use a high limit to fetch all records at once
+      const response = await fetch("/api/income-records?limit=10000")
+      if (response.ok) {
+        const data = await response.json()
+        const records = data.records || []
+        // Update local cache
+        await syncManager.cacheServerData("income", records)
+        return records
+      }
+      // Fallback to local records if server fetch fails
+      return await syncManager.getLocalRecords("income") as IncomeRecord[]
+    } catch (error) {
+      console.error("Failed to fetch all income records from server:", error)
+      // Fallback to local records
+      return await syncManager.getLocalRecords("income") as IncomeRecord[]
     }
   }
 
@@ -184,6 +206,27 @@ export class OfflineAPI {
     } catch (error) {
       // Silent fail for background fetch
       console.error("Background fetch failed for expense records:", error)
+    }
+  }
+
+  // Fetch all expense records from server - waits for response and returns all records
+  static async fetchAllExpenseRecords(): Promise<ExpenseRecord[]> {
+    try {
+      // Use a high limit to fetch all records at once
+      const response = await fetch("/api/expense-records?limit=10000")
+      if (response.ok) {
+        const data = await response.json()
+        const records = data.records || []
+        // Update local cache
+        await syncManager.cacheServerData("expense", records)
+        return records
+      }
+      // Fallback to local records if server fetch fails
+      return await syncManager.getLocalRecords("expense") as ExpenseRecord[]
+    } catch (error) {
+      console.error("Failed to fetch all expense records from server:", error)
+      // Fallback to local records
+      return await syncManager.getLocalRecords("expense") as ExpenseRecord[]
     }
   }
 
@@ -592,25 +635,17 @@ export class OfflineAPI {
       const incomeRecords = await syncManager.getLocalRecords("income")
       const expenseRecords = await syncManager.getLocalRecords("expense")
 
-      // Filter by date
-      const now = new Date()
-      let startDate: Date
+      // Use getDateRange utility for consistent date filtering
+      const { start, end } = getDateRange(dateFilter)
 
-      switch (dateFilter) {
-        case "today":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          break
-        case "week":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          break
-        case "month":
-        default:
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-          break
-      }
-
-      const filteredIncome = (incomeRecords as IncomeRecord[]).filter((record) => new Date(record.date) >= startDate)
-      const filteredExpenses = (expenseRecords as ExpenseRecord[]).filter((record) => new Date(record.date) >= startDate)
+      const filteredIncome = (incomeRecords as IncomeRecord[]).filter((record) => {
+        const recordDate = new Date(record.date)
+        return recordDate >= start && recordDate <= end
+      })
+      const filteredExpenses = (expenseRecords as ExpenseRecord[]).filter((record) => {
+        const recordDate = new Date(record.date)
+        return recordDate >= start && recordDate <= end
+      })
 
       const totalIncome = filteredIncome.reduce((sum, record) => sum + (record.totalAmount || 0), 0)
       const totalExpenses = filteredExpenses.reduce((sum, record) => sum + (record.amount || 0), 0)
