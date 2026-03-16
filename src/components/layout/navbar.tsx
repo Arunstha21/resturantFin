@@ -64,7 +64,7 @@ export function Navbar({ serverSession }: { serverSession: Session | null }) {
 
   return (
     <nav className="bg-background border-b">
-    <div className="lg:max-w-[80%] md:max-w-[90%] sm:max-w-[95%] mx-auto">
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center h-16">
         <div className="flex items-center">
             <Link href="/dashboard" className="flex items-center">

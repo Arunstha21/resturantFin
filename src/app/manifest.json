@@ -4,6 +4,7 @@
   "description": "Comprehensive financial management for restaurants with offline support",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
   "background_color": "#ffffff",
   "theme_color": "#000000",
   "orientation": "any",

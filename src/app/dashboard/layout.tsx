@@ -4,10 +4,6 @@
 
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import { SessionProvider } from "@/components/session-provider"
-import "../globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { OfflineIndicator } from "@/components/offline/offline-indicator"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
@@ -15,7 +11,6 @@ import { Navbar } from "@/components/layout/navbar"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Restaurant Finance Management System",
@@ -31,10 +26,14 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  minimumScale: 1,
+  userScalable: true,
   themeColor: "#000000",
+  viewportFit: "cover",
 }
 
-export default async function RootLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
@@ -42,41 +41,31 @@ export default async function RootLayout({
   const serverSession = await getServerSession(authOptions)
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="apple-touch-icon" href="/icon-192x192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="RestaurantFin" />
-      </head>
-      <body className={inter.className}>
-        <SessionProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-            <Navbar serverSession={serverSession} />
-            {children}
-            <Toaster />
-            <OfflineIndicator />
-            <InstallPrompt />
-          </ThemeProvider>
-        </SessionProvider>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                      console.log('SW registered');
-                    })
-                    .catch(function(registrationError) {
-                      console.log('SW registration failed: ', registrationError);
-                    });
-                });
-              }
-            `,
-          }}
-        />
-      </body>
-    </html>
+    <div className="flex flex-col min-h-screen">
+      <Navbar serverSession={serverSession} />
+      <div className="flex-1">
+        {children}
+      </div>
+      <Toaster />
+      <OfflineIndicator />
+      <InstallPrompt />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                  .then(function(registration) {
+                    console.log('SW registered');
+                  })
+                  .catch(function(registrationError) {
+                    console.log('SW registration failed: ', registrationError);
+                  });
+              });
+            }
+          `,
+        }}
+      />
+    </div>
   )
 }

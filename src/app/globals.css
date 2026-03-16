@@ -118,5 +118,25 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Fix PWA landscape mode on tablets */
+    width: 100% !important;
+    min-width: 100vw !important;
+    overflow-x: hidden;
+  }
+  html {
+    /* Fix PWA landscape mode on tablets */
+    width: 100% !important;
+    min-width: 100vw !important;
+  }
+}
+
+/* Fix PWA landscape mode on tablets - ensure full width usage */
+@supports (display-mode: standalone) or (display-mode: fullscreen) {
+  html,
+  body {
+    width: 100% !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
   }
 }
