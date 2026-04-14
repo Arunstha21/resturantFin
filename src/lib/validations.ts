@@ -10,13 +10,13 @@ export const orderItemSchema = z.object({
 export const incomeRecordSchema = z.object({
   items: z.array(
     z.object({
-      name: z.string(),
-      quantity: z.number(),
-      price: z.number(),
+      name: z.string().min(1, "Item name is required"),
+      quantity: z.number().min(1, "Quantity must be at least 1"),
+      price: z.number().min(0, "Price must be positive"),
       category: z.string().optional(),
       menuItemId: z.string().optional(),
     })
-  ),
+  ).min(1, "At least one item is required"),
   subtotal: z.number().min(0, "Subtotal must be at least 0"),
   discount: z.number().min(0, "Discount must be at least 0"),
   tip: z.number().min(0, "Tip must be at least 0"),

@@ -158,7 +158,14 @@ export async function duePaymentTransaction(id: string, paymentAmount: number, p
       order.paymentStatus = PAYMENT_STATUS.COMPLETED
     }
 
-    await order.save()
+    // Clean up items with empty names before saving to prevent validation errors
+    if (order.items && Array.isArray(order.items)) {
+      order.items = order.items.filter(item => item.name && item.name.trim() !== "")
+    }
+
+    // Some legacy orders can contain invalid nested item data.
+    // We only update payment fields here, so skip full document validation.
+    await order.save({ validateBeforeSave: false })
     remainingPayment -= paymentForThisOrder
   }
 

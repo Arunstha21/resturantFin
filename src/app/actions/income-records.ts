@@ -14,8 +14,16 @@ import { REVALIDATE_PATHS, ERROR_MESSAGES } from "@/lib/constants"
 export async function createIncomeRecord(data: IncomeRecordInput) {
   const { user } = await requireAuth()
 
+  // Filter out items with empty names
+  const validItems = data.items.filter(item => item.name && item.name.trim() !== "")
+
+  if (validItems.length === 0) {
+    throw new Error("At least one item with a name is required")
+  }
+
   const cleanedData = {
     ...data,
+    items: validItems,
     dueAccountId: data.dueAccountId && data.dueAccountId.trim() !== "" ? data.dueAccountId : undefined,
     isDueAccount: data.isDueAccount && data.dueAccountId && data.dueAccountId.trim() !== "",
   }
@@ -37,8 +45,16 @@ export async function createIncomeRecord(data: IncomeRecordInput) {
 export async function updateIncomeRecord(id: string, data: IncomeRecordInput) {
   await requireAuth()
 
+  // Filter out items with empty names
+  const validItems = data.items.filter(item => item.name && item.name.trim() !== "")
+
+  if (validItems.length === 0) {
+    throw new Error("At least one item with a name is required")
+  }
+
   const cleanedData = {
     ...data,
+    items: validItems,
     dueAccountId: data.dueAccountId && data.dueAccountId.trim() !== "" ? data.dueAccountId : undefined,
     isDueAccount: data.isDueAccount && data.dueAccountId && data.dueAccountId.trim() !== "",
   }

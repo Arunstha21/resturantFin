@@ -347,8 +347,18 @@ export function IncomeRecordForm({ record, onSuccess }: IncomeRecordFormProps) {
   const onSubmit = async (data: IncomeRecordInput) => {
     setIsLoading(true)
     try {
+      // Filter out items with empty names to prevent Mongoose validation errors
+      const validItems = data.items.filter(item => item.name && item.name.trim() !== "")
+
+      if (validItems.length === 0) {
+        toast.error("Please add at least one item with a name")
+        setIsLoading(false)
+        return
+      }
+
       const formData = {
         ...data,
+        items: validItems,
         totalAmount: Number(data.totalAmount) || 0,
         paymentMethod: formState.isSplitPayment ? PAYMENT_METHOD.SPLIT : data.paymentMethod,
         cashAmount: formState.isSplitPayment ? Number(data.cashAmount) || 0 : 0,
